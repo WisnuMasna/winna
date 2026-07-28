@@ -14,6 +14,7 @@ export type AppStackParamList = {
   RaceSetup: { templateId?: number; chainAfterId?: number } | undefined;
   Races: undefined;
   Profile: undefined;
+  Zones: undefined;
   Readiness: { date?: string } | undefined;
   Injuries: undefined;
   Shoes: undefined;

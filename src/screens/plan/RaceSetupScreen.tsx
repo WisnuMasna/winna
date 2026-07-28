@@ -8,7 +8,7 @@ import { useFeedback } from '../../state/FeedbackContext';
 import type { Equipment, PlanTemplate, RaceDistance } from '../../models/types';
 import { getTemplate, listTemplates } from '../../repositories/plan';
 import { createRace, editRace } from '../../services/planService';
-import { formatGoalTime, parseGoalTime, RACE_DISTANCE_LABEL } from '../../domain/pace';
+import { formatGoalTime, goalFromRecentResult, parseGoalTime, RACE_DISTANCE_LABEL, RACE_DISTANCE_METERS } from '../../domain/pace';
 import { EQUIPMENT_LABEL } from '../../domain/strength';
 import { displayToMeters, metersToDisplay } from '../../domain/units';
 import { todayISO, addDaysISO, formatShort } from '../../domain/dates';
@@ -35,6 +35,8 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
   const [equipment, setEquipment] = useState<Equipment>('full_gym');
   const [chainAfterId, setChainAfterId] = useState<number | null>(route.params?.chainAfterId ?? null);
   const [otherRaces, setOtherRaces] = useState<PlanTemplate[]>([]);
+  const [recentDist, setRecentDist] = useState<RaceDistance>('10k');
+  const [recentTime, setRecentTime] = useState('');
 
   const load = useCallback(async () => {
     const all = await listTemplates();
@@ -64,6 +66,17 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
   }, [load]);
 
   const chained = otherRaces.find((r) => r.id === chainAfterId) ?? null;
+
+  const applyRecentResult = () => {
+    const seconds = parseGoalTime(recentTime);
+    if (seconds == null) {
+      toast('Enter the time as h:mm:ss or mm:ss');
+      return;
+    }
+    const estimated = goalFromRecentResult(RACE_DISTANCE_METERS[recentDist], seconds, distance);
+    setGoal(formatGoalTime(estimated));
+    toast(`Goal set to ${formatGoalTime(estimated)} for your ${RACE_DISTANCE_LABEL[distance]}`);
+  };
 
   const onSave = async () => {
     const goalSeconds = parseGoalTime(goal);
@@ -145,6 +158,26 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
 
       <DateField label="Race date" value={raceDate} onChange={setRaceDate} minimumDate={todayISO()} />
       <Field label="Goal time (h:mm:ss)" value={goal} onChangeText={setGoal} placeholder="1:45:00" />
+
+      <Card style={{ backgroundColor: t.colors.surfaceAlt }}>
+        <Label>Not sure of your goal?</Label>
+        <Body muted style={{ marginBottom: t.spacing(2) }}>
+          Enter a recent race result and winna estimates an equivalent goal for this event.
+        </Body>
+        <View style={{ marginBottom: t.spacing(2) }}>
+          <SegmentedControl
+            options={DISTANCES.map((d) => ({
+              label: RACE_DISTANCE_LABEL[d].replace(' Marathon', '').replace('Marathon', 'Full'),
+              value: d,
+            }))}
+            value={recentDist}
+            onChange={setRecentDist}
+          />
+        </View>
+        <Field label="Recent finish time (h:mm:ss)" value={recentTime} onChangeText={setRecentTime} placeholder="e.g. 48:30" />
+        <Button title="Estimate my goal" variant="secondary" small onPress={applyRecentResult} />
+      </Card>
+
       <Field label="Training days / week (3–7)" value={frequency} onChangeText={setFrequency} keyboardType="numeric" />
 
       <Label>Strength equipment</Label>

@@ -84,11 +84,6 @@ export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>)
     }
   };
 
-  const recalibrateZones = async () => {
-    await update({ hr_zone_updated_at: todayISO() });
-    toast('Zones marked current');
-  };
-
   return (
     <ScreenScroll>
       <H1>Settings</H1>
@@ -155,12 +150,17 @@ export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>)
         />
       </Card>
 
-      <Card>
-        <Label>Training zones</Label>
-        <Body muted style={{ marginBottom: t.spacing(2) }}>
-          {settings.hr_zone_updated_at ? `Last calibrated ${settings.hr_zone_updated_at}.` : 'Not calibrated yet.'}
-        </Body>
-        <Button title="Mark zones recalibrated" variant="secondary" small onPress={recalibrateZones} />
+      <Card onPress={() => navigation.navigate('Zones')}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Label>Training zones & race predictor</Label>
+            <Body muted>
+              HR & pace targets, plus predict equivalent race times.
+              {settings.hr_zone_updated_at ? ` Last checked ${settings.hr_zone_updated_at}.` : ''}
+            </Body>
+          </View>
+          <Body muted>Open ›</Body>
+        </Row>
       </Card>
 
       <Card>

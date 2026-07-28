@@ -14,6 +14,7 @@ import { SessionEditScreen } from '../screens/plan/SessionEditScreen';
 import { RaceSetupScreen } from '../screens/plan/RaceSetupScreen';
 import { RacesScreen } from '../screens/plan/RacesScreen';
 import { ProfileScreen } from '../screens/progress/ProfileScreen';
+import { ZonesScreen } from '../screens/progress/ZonesScreen';
 import { ReadinessScreen } from '../screens/log/ReadinessScreen';
 import { InjuriesScreen } from '../screens/log/InjuriesScreen';
 import { ShoesScreen } from '../screens/progress/ShoesScreen';
@@ -46,6 +47,7 @@ function detailScreens() {
     <Stack.Screen key="RaceSetup" name="RaceSetup" component={RaceSetupScreen} options={{ title: 'Race & Plan' }} />,
     <Stack.Screen key="Races" name="Races" component={RacesScreen} options={{ title: 'Your races' }} />,
     <Stack.Screen key="Profile" name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />,
+    <Stack.Screen key="Zones" name="Zones" component={ZonesScreen} options={{ title: 'Training zones' }} />,
     <Stack.Screen key="Readiness" name="Readiness" component={ReadinessScreen} options={{ title: 'Readiness' }} />,
     <Stack.Screen key="Injuries" name="Injuries" component={InjuriesScreen} options={{ title: 'Injury history' }} />,
     <Stack.Screen key="Shoes" name="Shoes" component={ShoesScreen} options={{ title: 'Shoes' }} />,

@@ -170,7 +170,7 @@ export function ProgressScreen({ navigation }: TabScreenProps<'Progress'>) {
       </Card>
 
       {data.hrZoneStale ? (
-        <Card style={{ backgroundColor: t.colors.surfaceAlt }} onPress={() => navigation.navigate('Settings')}>
+        <Card style={{ backgroundColor: t.colors.surfaceAlt }} onPress={() => navigation.navigate('Zones')}>
           <Label>Zones</Label>
           <Body muted>Time to reassess your HR/pace zones so training targets stay accurate. Tap to update.</Body>
         </Card>
