@@ -64,6 +64,7 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
   });
 
   const daysToRace = data.template ? daysBetween(iso, data.template.race_date) : null;
+  const hasUpcomingRace = data.template != null && daysToRace != null && daysToRace >= 0;
   const visibleFlags = data.flags.filter((f) => !dismissed.has(f.id));
 
   const TAB_ROUTES = ['TodayTab', 'PlanTab', 'LogTab', 'ProgressTab'];
@@ -115,18 +116,30 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
       <H1>Today</H1>
       <Body muted>{formatLong(iso)}</Body>
 
-      {data.template && daysToRace != null && daysToRace >= 0 ? (
-        <Card style={{ marginTop: t.spacing(3), backgroundColor: t.colors.surfaceAlt }}>
+      {hasUpcomingRace && data.template ? (
+        <Card style={{ marginTop: t.spacing(3), backgroundColor: t.colors.surfaceAlt }} onPress={() => openRoute('PlanTab')}>
           <Row style={{ justifyContent: 'space-between' }}>
             <View>
-              <Text style={{ color: t.colors.text, fontWeight: '700' }}>{RACE_DISTANCE_LABEL[data.template.race_distance]}</Text>
-              <Body muted>{data.template.race_date}</Body>
+              <Text style={{ color: t.colors.text, fontWeight: '700' }}>
+                {data.template.name || RACE_DISTANCE_LABEL[data.template.race_distance]}
+              </Text>
+              <Body muted>{RACE_DISTANCE_LABEL[data.template.race_distance]} · {data.template.race_date}</Body>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={{ color: t.colors.primary, fontWeight: '800', fontSize: 26 }}>{daysToRace}</Text>
-              <Body muted>days to go</Body>
+              <Body muted>days · view plan ›</Body>
             </View>
           </Row>
+        </Card>
+      ) : null}
+
+      {!hasUpcomingRace ? (
+        <Card style={{ marginTop: t.spacing(3) }} onPress={() => navigation.navigate('RaceSetup', {})}>
+          <Label>Get started</Label>
+          <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 16, marginBottom: t.spacing(1) }}>
+            {data.template ? 'No upcoming race' : 'No race set yet'}
+          </Text>
+          <Body muted>Set up a race and winna builds a periodized hybrid plan for you. Tap to start ›</Body>
         </Card>
       ) : null}
 
