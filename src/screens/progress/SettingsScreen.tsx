@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 import { Body, Button, Card, H1, Label, Row, ScreenScroll, SegmentedControl } from '../../components/ui';
 import { useTheme } from '../../state/ThemeContext';
 import { useSettings } from '../../state/SettingsContext';
 import { useFeedback } from '../../state/FeedbackContext';
-import { serializeBackup } from '../../repositories/backup';
+import { parseBackup, restoreBackup, serializeBackup } from '../../repositories/backup';
 import { EQUIPMENT_LABEL } from '../../domain/strength';
 import { todayISO } from '../../domain/dates';
 import type { DistanceUnit, Equipment, ThemePref, WeightUnit } from '../../models/types';
@@ -14,9 +15,10 @@ import type { RootStackScreenProps } from '../../navigation/types';
 
 export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>) {
   const t = useTheme();
-  const { settings, update } = useSettings();
-  const { toast } = useFeedback();
+  const { settings, update, refresh } = useSettings();
+  const { confirm, toast } = useFeedback();
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   if (!settings) {
     return (
@@ -42,6 +44,43 @@ export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>)
       toast(`Export failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const readPickedFile = async (uri: string): Promise<string> => {
+    if (Platform.OS === 'web') {
+      const res = await fetch(uri);
+      return res.text();
+    }
+    return new File(uri).text();
+  };
+
+  const onImport = async () => {
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ['application/json', 'text/plain', '*/*'],
+      copyToCacheDirectory: true,
+    });
+    if (picked.canceled || !picked.assets?.[0]) return;
+
+    setImporting(true);
+    try {
+      const text = await readPickedFile(picked.assets[0].uri);
+      const backup = parseBackup(text);
+      const when = backup.exportedAt ? new Date(backup.exportedAt).toLocaleString() : 'unknown date';
+      const ok = await confirm({
+        title: 'Restore this backup?',
+        message: `This replaces ALL current data with the backup from ${when}. This can't be undone.`,
+        confirmLabel: 'Replace everything',
+        destructive: true,
+      });
+      if (!ok) return;
+      const result = await restoreBackup(backup);
+      await refresh();
+      toast(`Restored ${result.rows} records`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -127,9 +166,11 @@ export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>)
       <Card>
         <Label>Backup</Label>
         <Body muted style={{ marginBottom: t.spacing(2) }}>
-          Export all training data as JSON so it survives a phone switch or reinstall.
+          Export all training data as JSON so it survives a phone switch or reinstall — then import it on your new device.
         </Body>
         <Button title={exporting ? 'Exporting…' : 'Export / share backup'} onPress={onExport} />
+        <View style={{ height: t.spacing(2) }} />
+        <Button title={importing ? 'Importing…' : 'Import / restore backup'} variant="secondary" onPress={onImport} />
       </Card>
 
       <Button title="Integrations (Strava / Garmin)" variant="secondary" onPress={() => navigation.navigate('Integrations')} />
