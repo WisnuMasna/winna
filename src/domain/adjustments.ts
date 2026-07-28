@@ -12,6 +12,9 @@ export interface Flag {
   title: string;
   message: string;
   suggestion?: string;
+  /** Screen to open when the banner is tapped (a stack screen name or a tab name). */
+  route?: string;
+  routeParams?: Record<string, unknown>;
 }
 
 /** pain_severity >= 3 for 2+ consecutive most-recent days → suggest rest / cross-training. */
@@ -38,7 +41,8 @@ export function painStreakFlag(readiness: ReadinessLog[]): Flag | null {
       severity: 'danger',
       title: `Pain flagged ${streak} days running`,
       message: `You've logged pain ≥3${loc ? ` (${loc})` : ''} for ${streak} consecutive days.`,
-      suggestion: 'Consider swapping the next hard session for rest or easy cross-training.',
+      suggestion: 'Review today\'s check-in, or log it as an injury to drive prehab.',
+      route: 'Readiness',
     };
   }
   return null;
@@ -66,7 +70,8 @@ export function longRunLegDayClashFlags(scheduled: ScheduledSession[]): Flag[] {
           severity: 'warn',
           title: 'Long run next to a leg day',
           message: `Long run (${lr.date}) and lower-body lift (${leg.date}) are within 24h.`,
-          suggestion: 'Reshuffle the week to give your legs a buffer.',
+          suggestion: 'Open the plan and reshuffle the week to give your legs a buffer.',
+          route: 'PlanTab',
         });
       }
     }
@@ -109,6 +114,7 @@ export function acwrFlag(sessions: Session[], asOfISO = todayISO()): Flag | null
       title: `Training load spike (ACWR ${ratio.toFixed(2)})`,
       message: 'Your last 7 days are well above your 4-week average — a known injury-risk window.',
       suggestion: 'Ease off volume or intensity for a few days.',
+      route: 'ProgressTab',
     };
   }
   if (ratio < 0.8) {
@@ -130,6 +136,7 @@ export function hrZoneReminderFlag(lastUpdatedISO: string | null, asOfISO = toda
       severity: 'info',
       title: 'Set your training zones',
       message: 'Calibrate HR/pace zones once so "easy" and "threshold" targets stay accurate.',
+      route: 'Zones',
     };
   }
   const days = daysBetween(lastUpdatedISO, asOfISO);
@@ -140,6 +147,7 @@ export function hrZoneReminderFlag(lastUpdatedISO: string | null, asOfISO = toda
       title: 'Time to reassess your zones',
       message: `It's been ${Math.floor(days / 7)} weeks since your last zone check.`,
       suggestion: 'Re-test after a recent race or time trial.',
+      route: 'Zones',
     };
   }
   return null;

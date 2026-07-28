@@ -66,6 +66,16 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
   const daysToRace = data.template ? daysBetween(iso, data.template.race_date) : null;
   const visibleFlags = data.flags.filter((f) => !dismissed.has(f.id));
 
+  const TAB_ROUTES = ['TodayTab', 'PlanTab', 'LogTab', 'ProgressTab'];
+  const openRoute = (route?: string, params?: Record<string, unknown>) => {
+    if (!route) return;
+    if (TAB_ROUTES.includes(route)) {
+      (navigation.getParent()?.navigate as any)?.(route);
+    } else {
+      (navigation.navigate as any)(route, params);
+    }
+  };
+
   const quickReadiness = async (patch: Partial<ReadinessLog>) => {
     const current = data.readinessToday;
     await saveReadiness({
@@ -123,7 +133,12 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
       {visibleFlags.length > 0 ? (
         <View style={{ marginTop: t.spacing(3) }}>
           {visibleFlags.map((f) => (
-            <FlagBanner key={f.id} flag={f} onDismiss={(id) => setDismissed((prev) => new Set(prev).add(id))} />
+            <FlagBanner
+              key={f.id}
+              flag={f}
+              onDismiss={(id) => setDismissed((prev) => new Set(prev).add(id))}
+              onPress={(flag) => openRoute(flag.route, flag.routeParams)}
+            />
           ))}
         </View>
       ) : null}
