@@ -16,6 +16,7 @@ import { useTheme } from '../../state/ThemeContext';
 import { useUnits } from '../../state/SettingsContext';
 import { useFeedback } from '../../state/FeedbackContext';
 import { useFocusData } from '../../hooks/useFocusData';
+import { ExerciseEditor } from '../../components/ExerciseEditor';
 import type {
   PlannedDetails,
   ScheduledSession,
@@ -200,6 +201,7 @@ function ScheduledEditor({
   const [pace, setPace] = useState(
     planned.target_pace_s_per_km != null ? formatPace(planned.target_pace_s_per_km, units.distance).split('/')[0] : '',
   );
+  const [exercises, setExercises] = useState<StrengthExercise[]>(planned.exercises ?? []);
 
   const mob = mobilitySuggestions(scheduled.type, injuries, planned.split);
 
@@ -210,6 +212,7 @@ function ScheduledEditor({
       intervals: intervals || undefined,
       distance_m: distance.trim() ? displayToMeters(parseFloat(distance), units.distance) : undefined,
       target_pace_s_per_km: parsePaceInput(pace, units.distance) ?? planned.target_pace_s_per_km,
+      exercises: scheduled.type === 'strength' ? exercises : planned.exercises,
     };
     await updateScheduled(scheduled.id, { planned_json: stringifyPlanned(next) });
     onChanged();
@@ -229,8 +232,8 @@ function ScheduledEditor({
       notes: null,
       shoe_id: null,
     });
-    if (scheduled.type === 'strength' && planned.exercises) {
-      await setStrengthForSession(sessionId, planned.exercises);
+    if (scheduled.type === 'strength' && exercises.length > 0) {
+      await setStrengthForSession(sessionId, exercises);
     }
     await setScheduledStatus(scheduled.id, 'done', sessionId);
     onChanged();
@@ -276,15 +279,8 @@ function ScheduledEditor({
         </Card>
       ) : null}
 
-      {planned.exercises ? (
-        <Card>
-          <Label>Prescribed lifts</Label>
-          {planned.exercises.map((e, i) => (
-            <Text key={i} style={{ color: t.colors.text, fontSize: 14, marginTop: 2 }}>
-              {e.name} — {e.sets}×{e.reps} @ {e.weight}{e.unit}
-            </Text>
-          ))}
-        </Card>
+      {scheduled.type === 'strength' ? (
+        <ExerciseEditor exercises={exercises} onChange={setExercises} weightUnit={units.weight} />
       ) : null}
 
       <Button title="Save edits" onPress={saveEdits} />
@@ -404,10 +400,6 @@ function LoggedEditor({
     }
   };
 
-  const updateExercise = (i: number, patch: Partial<StrengthExercise>) => {
-    setExercises((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
-  };
-
   return (
     <ScreenScroll>
       <Row gap={2} style={{ marginBottom: t.spacing(2) }}>
@@ -439,32 +431,7 @@ function LoggedEditor({
       )}
 
       {session.type === 'strength' ? (
-        <Card>
-          <Label>Exercises</Label>
-          {exercises.length === 0 ? <Body muted>No exercises logged.</Body> : null}
-          {exercises.map((e, i) => (
-            <View key={i} style={{ marginBottom: t.spacing(2) }}>
-              <Field value={e.name} onChangeText={(v) => updateExercise(i, { name: v })} placeholder="Exercise" />
-              <Row gap={2}>
-                <View style={{ flex: 1 }}>
-                  <Field label="Sets" value={String(e.sets)} onChangeText={(v) => updateExercise(i, { sets: parseInt(v, 10) || 0 })} keyboardType="numeric" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Field label="Reps" value={String(e.reps)} onChangeText={(v) => updateExercise(i, { reps: parseInt(v, 10) || 0 })} keyboardType="numeric" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Field label="Weight" value={String(e.weight)} onChangeText={(v) => updateExercise(i, { weight: parseFloat(v) || 0 })} keyboardType="decimal-pad" />
-                </View>
-              </Row>
-            </View>
-          ))}
-          <Button
-            title="+ Add exercise"
-            variant="secondary"
-            small
-            onPress={() => setExercises((prev) => [...prev, { name: '', sets: 3, reps: 10, weight: 0, unit: units.weight }])}
-          />
-        </Card>
+        <ExerciseEditor exercises={exercises} onChange={setExercises} weightUnit={units.weight} />
       ) : null}
 
       {shoes.length > 0 && session.type === 'run' ? (
