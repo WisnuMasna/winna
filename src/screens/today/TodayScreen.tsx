@@ -1,32 +1,46 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Body, Button, Card, EmptyState, H1, Label, Row, ScreenScroll } from '../../components/ui';
 import { FlagBanner } from '../../components/Banner';
 import { ScheduledSessionCard } from '../../components/SessionCard';
+import { ReadinessCard } from '../../components/ReadinessCard';
 import { useTheme } from '../../state/ThemeContext';
 import { useFocusData } from '../../hooks/useFocusData';
 import { getActiveTemplate, listScheduledBetween, listScheduledForDate, parsePlanned, setScheduledStatus } from '../../repositories/plan';
 import { createSession, listSessions, setStrengthForSession } from '../../repositories/sessions';
-import { getReadinessForDate, listReadiness, saveReadiness } from '../../repositories/readiness';
+import { listReadiness } from '../../repositories/readiness';
+import { getMetricsForDate } from '../../repositories/dailyMetrics';
 import { listActiveInjuries } from '../../repositories/injuries';
 import { getSettings } from '../../repositories/settings';
-import { collectFlags, Flag } from '../../domain/adjustments';
+import { getProvider } from '../../providers';
+import { collectFlags, computeACWR, Flag } from '../../domain/adjustments';
+import { computeTrainingReadiness } from '../../domain/trainingReadiness';
 import { mobilitySuggestions } from '../../domain/mobility';
-import { addDaysISO, daysBetween, formatLong, todayISO, weekDates } from '../../domain/dates';
+import { daysBetween, formatLong, todayISO, weekDates } from '../../domain/dates';
 import { RACE_DISTANCE_LABEL } from '../../domain/pace';
-import type { InjuryLog, PlanTemplate, ReadinessLog, ScheduledSession } from '../../models/types';
+import type { InjuryLog, PlanTemplate, ScheduledSession, TrainingReadiness, WorkoutKind } from '../../models/types';
 import type { TabScreenProps } from '../../navigation/types';
 
 interface TodayData {
   template: PlanTemplate | null;
   today: ScheduledSession[];
-  readinessToday: ReadinessLog | null;
   injuries: InjuryLog[];
   flags: Flag[];
+  readiness: TrainingReadiness;
+  showConnectGarmin: boolean;
+  adjustSessionId: number | null;
 }
 
-const SCALE_1_5 = [1, 2, 3, 4, 5];
-const PAIN_SCALE = [0, 1, 2, 3, 4, 5];
+const HARD_KINDS = new Set<WorkoutKind>(['tempo', 'threshold', 'vo2max', 'race_pace', 'progression', 'long']);
+
+const EMPTY_READINESS: TrainingReadiness = {
+  score: null,
+  level: null,
+  headline: '…',
+  recommendation: '',
+  components: [],
+  hasDeviceData: false,
+};
 
 export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
   const t = useTheme();
@@ -35,32 +49,59 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
 
   const loader = useCallback(async (): Promise<TodayData> => {
     const week = weekDates(iso);
-    const [template, today, readinessToday, injuries, readiness, recentSessions, scheduledWeek, settings] =
+    const [template, today, injuries, readinessLogs, recentSessions, scheduledWeek, settings, metrics] =
       await Promise.all([
         getActiveTemplate(),
         listScheduledForDate(iso),
-        getReadinessForDate(iso),
         listActiveInjuries(),
         listReadiness(14),
         listSessions(60),
         listScheduledBetween(week[0], week[6]),
         getSettings(),
+        getMetricsForDate(iso),
       ]);
+
     const flags = collectFlags({
-      readiness,
+      readiness: readinessLogs,
       scheduledThisWeek: scheduledWeek,
       recentSessions,
       hrZoneUpdatedAt: settings.hr_zone_updated_at,
     });
-    return { template, today, readinessToday, injuries, flags };
+
+    // Training readiness inputs
+    const acwr = computeACWR(recentSessions);
+    const pastSessions = recentSessions.filter((s) => s.date < iso);
+    const recoveryHours = metrics?.recovery_hours ?? (pastSessions[0] ? daysBetween(pastSessions[0].date, iso) * 24 : null);
+
+    const parsedToday = today.map((s) => ({ s, p: parsePlanned(s) }));
+    const hard = parsedToday.find((x) => x.s.type === 'run' && x.p.workout_kind && HARD_KINDS.has(x.p.workout_kind));
+    const primary = hard ?? parsedToday[0] ?? null;
+
+    const readiness = computeTrainingReadiness({
+      acwr,
+      hoursSinceLastSession: recoveryHours,
+      metrics,
+      todayType: primary?.s.type ?? null,
+      todayKind: primary?.p.workout_kind ?? null,
+      todayLabel: primary?.p.label ?? null,
+    });
+
+    const garmin = getProvider('garmin');
+    const showConnectGarmin = !!garmin?.supportsDailyMetrics && settings.garmin_connected === 0 && !metrics;
+    const easeToday = readiness.level === 'low' || readiness.level === 'poor';
+    const adjustSessionId = hard && easeToday ? hard.s.id : null;
+
+    return { template, today, injuries, flags, readiness, showConnectGarmin, adjustSessionId };
   }, [iso]);
 
   const { data, reload } = useFocusData<TodayData>(loader, {
     template: null,
     today: [],
-    readinessToday: null,
     injuries: [],
     flags: [],
+    readiness: EMPTY_READINESS,
+    showConnectGarmin: false,
+    adjustSessionId: null,
   });
 
   const daysToRace = data.template ? daysBetween(iso, data.template.race_date) : null;
@@ -75,19 +116,6 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
     } else {
       (navigation.navigate as any)(route, params);
     }
-  };
-
-  const quickReadiness = async (patch: Partial<ReadinessLog>) => {
-    const current = data.readinessToday;
-    await saveReadiness({
-      date: iso,
-      sleep_quality: patch.sleep_quality ?? current?.sleep_quality ?? null,
-      soreness: patch.soreness ?? current?.soreness ?? null,
-      pain_location: current?.pain_location ?? null,
-      pain_severity: patch.pain_severity ?? current?.pain_severity ?? null,
-      notes: current?.notes ?? null,
-    });
-    reload();
   };
 
   const markDone = async (s: ScheduledSession) => {
@@ -157,6 +185,15 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
       ) : null}
 
       <View style={{ height: t.spacing(3) }} />
+      <ReadinessCard
+        readiness={data.readiness}
+        garminAvailable={data.showConnectGarmin}
+        onConnect={() => openRoute('Integrations')}
+        onLogFeel={() => navigation.navigate('Readiness', { date: iso })}
+        onAdjust={data.adjustSessionId != null ? () => navigation.navigate('SessionEdit', { scheduledId: data.adjustSessionId! }) : undefined}
+        adjustLabel="Ease today's session ›"
+      />
+
       <Label>Today's sessions</Label>
       {data.today.length === 0 ? (
         <EmptyState title="Rest day" subtitle="Nothing scheduled. Enjoy it — or add something from the Plan tab." />
@@ -177,31 +214,6 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
         ))
       )}
 
-      {/* Quick readiness — 1 tap each, never a gate */}
-      <Card style={{ marginTop: t.spacing(2) }}>
-        <Label>Quick check-in</Label>
-        <QuickRow
-          title="Sleep"
-          scale={SCALE_1_5}
-          value={data.readinessToday?.sleep_quality ?? null}
-          onPick={(v) => quickReadiness({ sleep_quality: v })}
-        />
-        <QuickRow
-          title="Soreness"
-          scale={SCALE_1_5}
-          value={data.readinessToday?.soreness ?? null}
-          onPick={(v) => quickReadiness({ soreness: v })}
-        />
-        <QuickRow
-          title="Pain"
-          scale={PAIN_SCALE}
-          value={data.readinessToday?.pain_severity ?? null}
-          onPick={(v) => quickReadiness({ pain_severity: v })}
-          danger
-        />
-        <Button title="More detail (location, notes)" variant="ghost" small onPress={() => navigation.navigate('Readiness', { date: iso })} />
-      </Card>
-
       {mob.length > 0 ? (
         <Card style={{ backgroundColor: t.colors.surfaceAlt }}>
           <Label>Optional mobility</Label>
@@ -221,50 +233,5 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
         <Body muted>Weather-aware notes for outdoor sessions are coming in a later update.</Body>
       </Card>
     </ScreenScroll>
-  );
-}
-
-function QuickRow({
-  title,
-  scale,
-  value,
-  onPick,
-  danger,
-}: {
-  title: string;
-  scale: number[];
-  value: number | null;
-  onPick: (v: number) => void;
-  danger?: boolean;
-}) {
-  const t = useTheme();
-  const activeColor = danger ? t.colors.danger : t.colors.primary;
-  return (
-    <View style={{ marginTop: t.spacing(2) }}>
-      <Text style={{ color: t.colors.textMuted, fontSize: 13, marginBottom: t.spacing(1) }}>{title}</Text>
-      <Row gap={2}>
-        {scale.map((n) => {
-          const active = value === n;
-          return (
-            <Pressable
-              key={n}
-              onPress={() => onPick(n)}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: active ? activeColor : t.colors.surface,
-                borderWidth: 1,
-                borderColor: active ? activeColor : t.colors.border,
-              }}
-            >
-              <Text style={{ color: active ? t.colors.primaryText : t.colors.text, fontWeight: '700' }}>{n}</Text>
-            </Pressable>
-          );
-        })}
-      </Row>
-    </View>
   );
 }
