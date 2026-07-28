@@ -1,0 +1,178 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { View } from 'react-native';
+import { Body, Button, Card, Field, H1, Label, Pill, Row, ScreenScroll, SegmentedControl } from '../../components/ui';
+import { useTheme } from '../../state/ThemeContext';
+import { useSettings } from '../../state/SettingsContext';
+import { useFeedback } from '../../state/FeedbackContext';
+import type { Equipment, PlanTemplate, RaceDistance } from '../../models/types';
+import { getTemplate, listTemplates } from '../../repositories/plan';
+import { createRace, editRace } from '../../services/planService';
+import { formatGoalTime, parseGoalTime, RACE_DISTANCE_LABEL } from '../../domain/pace';
+import { EQUIPMENT_LABEL } from '../../domain/strength';
+import { displayToMeters, metersToDisplay } from '../../domain/units';
+import { todayISO, addDaysISO, formatShort } from '../../domain/dates';
+import type { RootStackScreenProps } from '../../navigation/types';
+
+const DISTANCES: RaceDistance[] = ['5k', '10k', 'half', 'full', 'ultra'];
+const EQUIPMENT: Equipment[] = ['full_gym', 'dumbbell', 'bodyweight'];
+
+export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'RaceSetup'>) {
+  const t = useTheme();
+  const { settings } = useSettings();
+  const { toast } = useFeedback();
+  const distanceUnit = settings?.units_distance ?? 'km';
+
+  const templateId = route.params?.templateId;
+  const isEditing = templateId != null;
+
+  const [name, setName] = useState('');
+  const [distance, setDistance] = useState<RaceDistance>('half');
+  const [raceDate, setRaceDate] = useState(addDaysISO(todayISO(), 84));
+  const [goal, setGoal] = useState('1:45:00');
+  const [frequency, setFrequency] = useState('5');
+  const [baseline, setBaseline] = useState('');
+  const [equipment, setEquipment] = useState<Equipment>('full_gym');
+  const [chainAfterId, setChainAfterId] = useState<number | null>(route.params?.chainAfterId ?? null);
+  const [otherRaces, setOtherRaces] = useState<PlanTemplate[]>([]);
+
+  const load = useCallback(async () => {
+    const all = await listTemplates();
+    setOtherRaces(all.filter((r) => r.id !== templateId));
+
+    if (isEditing) {
+      const tpl = await getTemplate(templateId);
+      if (tpl) {
+        setName(tpl.name ?? '');
+        setDistance(tpl.race_distance);
+        setRaceDate(tpl.race_date);
+        setGoal(formatGoalTime(tpl.goal_seconds));
+        setFrequency(String(tpl.weekly_frequency));
+        setEquipment(tpl.equipment);
+        setChainAfterId(tpl.chained_from_id);
+        if (tpl.baseline_weekly_km != null) {
+          setBaseline(metersToDisplay(tpl.baseline_weekly_km * 1000, distanceUnit).toFixed(0));
+        }
+      }
+    } else if (settings?.equipment) {
+      setEquipment(settings.equipment);
+    }
+  }, [templateId, isEditing, distanceUnit, settings?.equipment]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const chained = otherRaces.find((r) => r.id === chainAfterId) ?? null;
+
+  const onSave = async () => {
+    const goalSeconds = parseGoalTime(goal);
+    const freq = parseInt(frequency, 10);
+    if (isNaN(freq) || freq < 3 || freq > 7) {
+      toast('Training days should be between 3 and 7.');
+      return;
+    }
+    const baselineNum = baseline.trim() ? parseFloat(baseline) : NaN;
+    const baselineKm = isNaN(baselineNum) ? null : displayToMeters(baselineNum, distanceUnit) / 1000;
+
+    const input = {
+      name: name.trim() || null,
+      raceDistance: distance,
+      raceDate,
+      goalSeconds,
+      weeklyFrequency: freq,
+      baselineWeeklyKm: baselineKm,
+      equipment,
+      distanceUnit,
+      chainAfterId,
+    };
+
+    if (isEditing) {
+      await editRace(templateId, input);
+      toast('Race updated');
+    } else {
+      await createRace(input);
+      toast('Race & plan created');
+    }
+    navigation.goBack();
+  };
+
+  return (
+    <ScreenScroll>
+      <H1>{isEditing ? 'Edit race' : 'New race'}</H1>
+      <Body muted>Everything here is a starting point — edit individual sessions freely afterwards.</Body>
+
+      <View style={{ height: t.spacing(4) }} />
+      <Field label="Race name (optional)" value={name} onChangeText={setName} placeholder="e.g. Berlin Marathon" />
+
+      <Label>Event distance</Label>
+      <View style={{ marginBottom: t.spacing(3) }}>
+        <SegmentedControl
+          options={DISTANCES.map((d) => ({
+            label: RACE_DISTANCE_LABEL[d].replace(' Marathon', '').replace('Marathon', 'Full'),
+            value: d,
+          }))}
+          value={distance}
+          onChange={setDistance}
+        />
+      </View>
+
+      {otherRaces.length > 0 ? (
+        <Card>
+          <Label>Build on a previous race</Label>
+          <Body muted style={{ marginBottom: t.spacing(2) }}>
+            Chain this block to start after another race and carry your built-up fitness forward.
+          </Body>
+          <Row gap={2} style={{ flexWrap: 'wrap' }}>
+            <Button title="Standalone" variant={chainAfterId == null ? 'primary' : 'secondary'} small onPress={() => setChainAfterId(null)} />
+            {otherRaces.map((r) => (
+              <Button
+                key={r.id}
+                title={r.name || RACE_DISTANCE_LABEL[r.race_distance]}
+                variant={chainAfterId === r.id ? 'primary' : 'secondary'}
+                small
+                onPress={() => setChainAfterId(r.id)}
+              />
+            ))}
+          </Row>
+          {chained ? (
+            <Body muted style={{ marginTop: t.spacing(2) }}>
+              Starts {formatShort(addDaysISO(chained.race_date, 3))}, ramping from your previous peak volume.
+            </Body>
+          ) : null}
+        </Card>
+      ) : null}
+
+      <Field label="Race date (YYYY-MM-DD)" value={raceDate} onChangeText={setRaceDate} placeholder="2026-10-15" />
+      <Field label="Goal time (h:mm:ss)" value={goal} onChangeText={setGoal} placeholder="1:45:00" />
+      <Field label="Training days / week (3–7)" value={frequency} onChangeText={setFrequency} keyboardType="numeric" />
+
+      <Label>Strength equipment</Label>
+      <View style={{ marginBottom: t.spacing(3) }}>
+        <SegmentedControl
+          options={EQUIPMENT.map((e) => ({ label: EQUIPMENT_LABEL[e], value: e }))}
+          value={equipment}
+          onChange={setEquipment}
+        />
+      </View>
+
+      {chainAfterId == null ? (
+        <Field
+          label={`Current weekly volume (${distanceUnit}) — optional`}
+          value={baseline}
+          onChangeText={setBaseline}
+          keyboardType="decimal-pad"
+          placeholder="leave blank for a sensible default"
+        />
+      ) : (
+        <Row gap={2} style={{ marginBottom: t.spacing(3) }}>
+          <Pill text="chained" color={t.colors.accent} />
+          <Body muted>Start date & starting volume are set automatically from the previous race.</Body>
+        </Row>
+      )}
+
+      <Button title={isEditing ? 'Save & regenerate' : 'Create plan'} onPress={onSave} />
+      <View style={{ height: t.spacing(2) }} />
+      <Body muted>This replaces the planned sessions for this race only. Anything you've logged stays.</Body>
+    </ScreenScroll>
+  );
+}

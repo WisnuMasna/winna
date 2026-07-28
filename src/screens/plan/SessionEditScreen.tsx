@@ -1,0 +1,510 @@
+import React, { useCallback, useState } from 'react';
+import { Text, View } from 'react-native';
+import {
+  Body,
+  Button,
+  Card,
+  Divider,
+  Field,
+  H2,
+  Label,
+  Row,
+  ScreenScroll,
+  SegmentedControl,
+} from '../../components/ui';
+import { useTheme } from '../../state/ThemeContext';
+import { useUnits } from '../../state/SettingsContext';
+import { useFeedback } from '../../state/FeedbackContext';
+import { useFocusData } from '../../hooks/useFocusData';
+import type {
+  PlannedDetails,
+  ScheduledSession,
+  Session,
+  SessionType,
+  StrengthExercise,
+} from '../../models/types';
+import {
+  deleteScheduled,
+  getScheduled,
+  insertScheduled,
+  parsePlanned,
+  setScheduledStatus,
+  stringifyPlanned,
+  updateScheduled,
+} from '../../repositories/plan';
+import {
+  createSession,
+  deleteSession,
+  getSession,
+  getStrengthForSession,
+  setStrengthForSession,
+  updateSession,
+} from '../../repositories/sessions';
+import { listActiveInjuries } from '../../repositories/injuries';
+import { listShoes } from '../../repositories/shoes';
+import { dropSession, foldSession, pushSession } from '../../services/weekActions';
+import { mobilitySuggestions } from '../../domain/mobility';
+import { displayToMeters, formatPace, metersToDisplay, parseDurationInput } from '../../domain/units';
+import type { InjuryLog, Shoe } from '../../models/types';
+import type { RootStackScreenProps } from '../../navigation/types';
+
+const TYPES: SessionType[] = ['run', 'strength', 'mobility', 'cross', 'rest'];
+const KM_PER_MI = 1.609344;
+
+function parsePaceInput(text: string, unit: 'km' | 'mi'): number | null {
+  const parts = text.trim().split(':').map((p) => parseInt(p, 10));
+  if (parts.length !== 2 || parts.some((p) => isNaN(p))) return null;
+  const perDisplay = parts[0] * 60 + parts[1];
+  return unit === 'mi' ? perDisplay / KM_PER_MI : perDisplay;
+}
+
+interface LoadResult {
+  scheduled: ScheduledSession | null;
+  session: Session | null;
+  strength: StrengthExercise[];
+  injuries: InjuryLog[];
+  shoes: Shoe[];
+}
+
+export function SessionEditScreen({ route, navigation }: RootStackScreenProps<'SessionEdit'>) {
+  const t = useTheme();
+  const units = useUnits();
+  const { scheduledId, sessionId, date } = route.params ?? {};
+
+  const loader = useCallback(async (): Promise<LoadResult> => {
+    const scheduled = scheduledId ? await getScheduled(scheduledId) : null;
+    const session = sessionId ? await getSession(sessionId) : null;
+    const strength = sessionId ? await getStrengthForSession(sessionId) : [];
+    const injuries = await listActiveInjuries();
+    const shoes = await listShoes();
+    return { scheduled, session, strength, injuries, shoes };
+  }, [scheduledId, sessionId]);
+
+  const { data, reload } = useFocusData<LoadResult>(loader, {
+    scheduled: null,
+    session: null,
+    strength: [],
+    injuries: [],
+    shoes: [],
+  });
+
+  // ---- Empty-day add mode ----
+  if (!scheduledId && !sessionId && date) {
+    return <AddForDate date={date} navigation={navigation} />;
+  }
+
+  if (data.scheduled) {
+    return (
+      <ScheduledEditor
+        scheduled={data.scheduled}
+        injuries={data.injuries}
+        onChanged={reload}
+        navigation={navigation}
+      />
+    );
+  }
+
+  if (data.session) {
+    return (
+      <LoggedEditor
+        session={data.session}
+        strength={data.strength}
+        shoes={data.shoes}
+        onDeleted={() => navigation.goBack()}
+      />
+    );
+  }
+
+  return (
+    <ScreenScroll>
+      <Body muted>Loading…</Body>
+    </ScreenScroll>
+  );
+}
+
+// ---------------------------------------------------------------------------
+function AddForDate({ date, navigation }: { date: string; navigation: RootStackScreenProps<'SessionEdit'>['navigation'] }) {
+  const [type, setType] = useState<SessionType>('run');
+
+  const addPlanned = async () => {
+    const planned: PlannedDetails = { label: type === 'run' ? 'Easy run' : type[0].toUpperCase() + type.slice(1) };
+    const id = await insertScheduled({
+      date,
+      type,
+      phase: 'base',
+      planned_json: stringifyPlanned(planned),
+      status: 'planned',
+      flag_reason: null,
+      template_id: null,
+      linked_session_id: null,
+    });
+    navigation.replace('SessionEdit', { scheduledId: id });
+  };
+
+  const logNow = async () => {
+    const id = await createSession({
+      date,
+      type,
+      source: 'manual',
+      duration_s: null,
+      distance_m: null,
+      avg_pace_s_per_km: null,
+      avg_hr: null,
+      rpe: null,
+      notes: null,
+      shoe_id: null,
+    });
+    navigation.replace('SessionEdit', { sessionId: id });
+  };
+
+  return (
+    <ScreenScroll>
+      <H2>Add to {date}</H2>
+      <Label>Session type</Label>
+      <View style={{ marginBottom: 16 }}>
+        <SegmentedControl
+          options={TYPES.map((x) => ({ label: x[0].toUpperCase() + x.slice(1), value: x }))}
+          value={type}
+          onChange={setType}
+        />
+      </View>
+      <Button title="Add to plan" onPress={addPlanned} />
+      <View style={{ height: 8 }} />
+      <Button title="Log a completed session" variant="secondary" onPress={logNow} />
+    </ScreenScroll>
+  );
+}
+
+// ---------------------------------------------------------------------------
+function ScheduledEditor({
+  scheduled,
+  injuries,
+  onChanged,
+  navigation,
+}: {
+  scheduled: ScheduledSession;
+  injuries: InjuryLog[];
+  onChanged: () => void;
+  navigation: RootStackScreenProps<'SessionEdit'>['navigation'];
+}) {
+  const t = useTheme();
+  const units = useUnits();
+  const { confirm, toast } = useFeedback();
+  const planned = parsePlanned(scheduled);
+
+  const [label, setLabel] = useState(planned.label ?? '');
+  const [intervals, setIntervals] = useState(planned.intervals ?? '');
+  const [distance, setDistance] = useState(
+    planned.distance_m != null ? metersToDisplay(planned.distance_m, units.distance).toFixed(1) : '',
+  );
+  const [pace, setPace] = useState(
+    planned.target_pace_s_per_km != null ? formatPace(planned.target_pace_s_per_km, units.distance).split('/')[0] : '',
+  );
+
+  const mob = mobilitySuggestions(scheduled.type, injuries, planned.split);
+
+  const saveEdits = async () => {
+    const next: PlannedDetails = {
+      ...planned,
+      label: label || undefined,
+      intervals: intervals || undefined,
+      distance_m: distance.trim() ? displayToMeters(parseFloat(distance), units.distance) : undefined,
+      target_pace_s_per_km: parsePaceInput(pace, units.distance) ?? planned.target_pace_s_per_km,
+    };
+    await updateScheduled(scheduled.id, { planned_json: stringifyPlanned(next) });
+    onChanged();
+    toast('Session updated');
+  };
+
+  const markDone = async () => {
+    const sessionId = await createSession({
+      date: scheduled.date,
+      type: scheduled.type,
+      source: 'manual',
+      duration_s: planned.duration_s ?? null,
+      distance_m: planned.distance_m ?? null,
+      avg_pace_s_per_km: planned.target_pace_s_per_km ?? null,
+      avg_hr: null,
+      rpe: null,
+      notes: null,
+      shoe_id: null,
+    });
+    if (scheduled.type === 'strength' && planned.exercises) {
+      await setStrengthForSession(sessionId, planned.exercises);
+    }
+    await setScheduledStatus(scheduled.id, 'done', sessionId);
+    onChanged();
+    toast('Marked done & logged ✓');
+    navigation.replace('SessionEdit', { sessionId });
+  };
+
+  const confirmDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete session?',
+      message: 'This removes it from the plan.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (ok) {
+      await deleteScheduled(scheduled.id);
+      navigation.goBack();
+    }
+  };
+
+  return (
+    <ScreenScroll>
+      <Row gap={2} style={{ marginBottom: t.spacing(2) }}>
+        <Text style={{ color: t.colors.textMuted, fontWeight: '700' }}>{scheduled.date}</Text>
+        <Text style={{ color: t.colors.textMuted }}>· {scheduled.phase} · {scheduled.status}</Text>
+      </Row>
+
+      <Field label="Title" value={label} onChangeText={setLabel} />
+      <Field label="Workout / structure" value={intervals} onChangeText={setIntervals} multiline />
+      <Row gap={3}>
+        <View style={{ flex: 1 }}>
+          <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} keyboardType="decimal-pad" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Field label={`Target pace (mm:ss/${units.distance})`} value={pace} onChangeText={setPace} />
+        </View>
+      </Row>
+
+      {planned.rationale ? (
+        <Card style={{ backgroundColor: t.colors.surfaceAlt }}>
+          <Label>Why this workout</Label>
+          <Body muted>{planned.rationale}</Body>
+        </Card>
+      ) : null}
+
+      {planned.exercises ? (
+        <Card>
+          <Label>Prescribed lifts</Label>
+          {planned.exercises.map((e, i) => (
+            <Text key={i} style={{ color: t.colors.text, fontSize: 14, marginTop: 2 }}>
+              {e.name} — {e.sets}×{e.reps} @ {e.weight}{e.unit}
+            </Text>
+          ))}
+        </Card>
+      ) : null}
+
+      <Button title="Save edits" onPress={saveEdits} />
+      <View style={{ height: t.spacing(2) }} />
+      <Button title="✓ Mark done & log" variant="secondary" onPress={markDone} />
+
+      <Divider />
+      <Label>Can't do this session?</Label>
+      <Body muted style={{ marginBottom: t.spacing(3) }}>No silent gaps — pick what happens to it:</Body>
+
+      <SkipAction
+        title="Push"
+        description="Move it to your next free day so you still get the session in."
+        onPress={async () => {
+          const to = await pushSession(scheduled);
+          onChanged();
+          toast(`Pushed to ${to}`);
+          navigation.goBack();
+        }}
+      />
+      <SkipAction
+        title="Fold in"
+        description="Skip it now and add its work to your next matching session."
+        onPress={async () => {
+          const ok = await foldSession(scheduled);
+          onChanged();
+          toast(ok ? 'Folded into your next session' : 'No later session — marked skipped');
+          navigation.goBack();
+        }}
+      />
+      <SkipAction
+        title="Drop"
+        description="Skip it with no make-up. It's logged as skipped, not deleted."
+        onPress={async () => {
+          await dropSession(scheduled);
+          onChanged();
+          toast('Marked skipped');
+          navigation.goBack();
+        }}
+      />
+      <View style={{ height: t.spacing(2) }} />
+
+      {mob.length > 0 ? (
+        <Card style={{ backgroundColor: t.colors.surfaceAlt }}>
+          <Label>Optional mobility</Label>
+          {mob.map((b) => (
+            <View key={b.id} style={{ marginTop: t.spacing(2) }}>
+              <Text style={{ color: t.colors.text, fontWeight: '700', fontSize: 14 }}>
+                {b.title} · {b.durationMin} min{b.reason ? ` · ${b.reason}` : ''}
+              </Text>
+              <Text style={{ color: t.colors.textMuted, fontSize: 13 }}>{b.items.join(' · ')}</Text>
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
+      <Button title="Delete from plan" variant="danger" onPress={confirmDelete} />
+    </ScreenScroll>
+  );
+}
+
+// ---------------------------------------------------------------------------
+function LoggedEditor({
+  session,
+  strength,
+  shoes,
+  onDeleted,
+}: {
+  session: Session;
+  strength: StrengthExercise[];
+  shoes: Shoe[];
+  onDeleted: () => void;
+}) {
+  const t = useTheme();
+  const units = useUnits();
+  const { confirm, toast } = useFeedback();
+
+  const [distance, setDistance] = useState(
+    session.distance_m != null ? metersToDisplay(session.distance_m, units.distance).toFixed(2) : '',
+  );
+  const [duration, setDuration] = useState(session.duration_s != null ? String(Math.round(session.duration_s / 60)) : '');
+  const [hr, setHr] = useState(session.avg_hr != null ? String(session.avg_hr) : '');
+  const [rpe, setRpe] = useState(session.rpe != null ? String(session.rpe) : '');
+  const [notes, setNotes] = useState(session.notes ?? '');
+  const [shoeId, setShoeId] = useState<number | null>(session.shoe_id);
+  const [exercises, setExercises] = useState<StrengthExercise[]>(strength);
+
+  const save = async () => {
+    const distM = distance.trim() ? displayToMeters(parseFloat(distance), units.distance) : null;
+    const durS = duration.trim() ? parseDurationInput(duration) : null;
+    const pace = distM && durS ? durS / (distM / 1000) : session.avg_pace_s_per_km;
+    await updateSession(session.id, {
+      distance_m: distM,
+      duration_s: durS,
+      avg_pace_s_per_km: pace,
+      avg_hr: hr.trim() ? parseInt(hr, 10) : null,
+      rpe: rpe.trim() ? parseInt(rpe, 10) : null,
+      notes: notes || null,
+      shoe_id: shoeId,
+    });
+    if (session.type === 'strength') {
+      await setStrengthForSession(session.id, exercises);
+    }
+    toast('Log saved');
+  };
+
+  const confirmDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete log?',
+      message: 'This permanently removes this logged session.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (ok) {
+      await deleteSession(session.id);
+      onDeleted();
+    }
+  };
+
+  const updateExercise = (i: number, patch: Partial<StrengthExercise>) => {
+    setExercises((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+  };
+
+  return (
+    <ScreenScroll>
+      <Row gap={2} style={{ marginBottom: t.spacing(2) }}>
+        <Text style={{ color: t.colors.textMuted, fontWeight: '700' }}>{session.date}</Text>
+        <Text style={{ color: t.colors.textMuted }}>· {session.type} · {session.source}</Text>
+      </Row>
+
+      {session.type !== 'strength' ? (
+        <>
+          <Row gap={3}>
+            <View style={{ flex: 1 }}>
+              <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} keyboardType="decimal-pad" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field label="Duration (min or h:mm:ss)" value={duration} onChangeText={setDuration} />
+            </View>
+          </Row>
+          <Row gap={3}>
+            <View style={{ flex: 1 }}>
+              <Field label="Avg HR" value={hr} onChangeText={setHr} keyboardType="numeric" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field label="RPE (1–10)" value={rpe} onChangeText={setRpe} keyboardType="numeric" />
+            </View>
+          </Row>
+        </>
+      ) : (
+        <Field label="RPE (1–10)" value={rpe} onChangeText={setRpe} keyboardType="numeric" />
+      )}
+
+      {session.type === 'strength' ? (
+        <Card>
+          <Label>Exercises</Label>
+          {exercises.length === 0 ? <Body muted>No exercises logged.</Body> : null}
+          {exercises.map((e, i) => (
+            <View key={i} style={{ marginBottom: t.spacing(2) }}>
+              <Field value={e.name} onChangeText={(v) => updateExercise(i, { name: v })} placeholder="Exercise" />
+              <Row gap={2}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Sets" value={String(e.sets)} onChangeText={(v) => updateExercise(i, { sets: parseInt(v, 10) || 0 })} keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field label="Reps" value={String(e.reps)} onChangeText={(v) => updateExercise(i, { reps: parseInt(v, 10) || 0 })} keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field label="Weight" value={String(e.weight)} onChangeText={(v) => updateExercise(i, { weight: parseFloat(v) || 0 })} keyboardType="decimal-pad" />
+                </View>
+              </Row>
+            </View>
+          ))}
+          <Button
+            title="+ Add exercise"
+            variant="secondary"
+            small
+            onPress={() => setExercises((prev) => [...prev, { name: '', sets: 3, reps: 10, weight: 0, unit: units.weight }])}
+          />
+        </Card>
+      ) : null}
+
+      {shoes.length > 0 && session.type === 'run' ? (
+        <Card>
+          <Label>Shoes</Label>
+          <Row gap={2} style={{ flexWrap: 'wrap' }}>
+            <Button title="None" variant={shoeId == null ? 'primary' : 'secondary'} small onPress={() => setShoeId(null)} />
+            {shoes.map((s) => (
+              <Button key={s.id} title={s.name} variant={shoeId === s.id ? 'primary' : 'secondary'} small onPress={() => setShoeId(s.id)} />
+            ))}
+          </Row>
+        </Card>
+      ) : null}
+
+      <Field label="Notes" value={notes} onChangeText={setNotes} multiline />
+
+      <Button title="Save log" onPress={save} />
+      <View style={{ height: t.spacing(2) }} />
+      <Button title="Delete log" variant="danger" onPress={confirmDelete} />
+    </ScreenScroll>
+  );
+}
+
+// A skip action with a one-line explanation of what it does (Push / Fold in / Drop).
+function SkipAction({
+  title,
+  description,
+  onPress,
+}: {
+  title: string;
+  description: string;
+  onPress: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing(3), marginBottom: t.spacing(2) }}>
+      <View style={{ width: 92 }}>
+        <Button title={title} variant="secondary" small onPress={onPress} />
+      </View>
+      <Text style={{ color: t.colors.textMuted, fontSize: 13, flex: 1 }}>{description}</Text>
+    </View>
+  );
+}
