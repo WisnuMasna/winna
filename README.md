@@ -36,12 +36,13 @@ Most run-training apps optimize purely for race times and treat lifting as an af
 - Weekly mileage vs. planned, strength volume, and readiness trend.
 - **ACWR** (acute:chronic workload ratio) as a proactive injury-risk gauge.
 - Milestones (longest run, fastest pace, logging streak), **shoe mileage** with wear alerts, and **physique tracking** (bodyweight over time) — because physique maintenance is the actual goal, not just running numbers.
-- One-tap **JSON backup/export** so your history survives a phone switch.
+- **JSON backup/export *and* import/restore** so your history survives a phone switch.
 
 ### The plan engine
 - **Periodization** — from your race date and distance, winna lays out base → build → peak → taper phases (taper length scales with distance) and distributes your chosen number of training days across run / lift / rest, keeping heavy leg days away from long runs and speed work.
 - **Pace targets** — computed with the Riegel formula from your goal time, then turned into distance-appropriate workouts (easy, long, tempo, threshold, VO2max, race-pace) — each with a short **"why this workout"** rationale so the plan isn't a black box.
-- **Heart-rate targets** — if you add your age, winna estimates HR-max (Tanaka) and attaches an HR zone to each run alongside the pace.
+- **Heart-rate targets** — if you add your age, winna estimates HR-max (Tanaka) and attaches an HR zone to each run alongside the pace. A **Training zones** screen shows your HR + pace zones and a **race-time predictor** across distances.
+- **Not sure of your goal?** Enter a recent race result and winna estimates an equivalent goal time for your event (Riegel).
 - **Strength that fits your gym** — pick **Full gym / Dumbbells / Bodyweight** per race; the default 2×/week hybrid split (lower/upper) changes accordingly, with loads scaled to your bodyweight.
 - **Multiple races, chained** — plan several races and **chain** them so each block starts when the last finishes and carries your built-up fitness forward. The countdown and week view always follow your nearest upcoming race.
 
