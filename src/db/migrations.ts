@@ -131,6 +131,25 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE plan_templates ADD COLUMN baseline_weekly_km REAL;
     `,
   },
+  {
+    // Daily physiological metrics (sleep, HRV, recovery, stress, Body Battery). This is where
+    // a Garmin sync upserts; Training Readiness is computed from it plus local training load.
+    version: 4,
+    up: `
+      CREATE TABLE IF NOT EXISTS daily_metrics (
+        date TEXT PRIMARY KEY,
+        source TEXT NOT NULL DEFAULT 'garmin',
+        sleep_score INTEGER,
+        hrv_status TEXT,
+        hrv_ms REAL,
+        recovery_hours REAL,
+        resting_hr INTEGER,
+        stress INTEGER,
+        body_battery INTEGER,
+        updated_at TEXT
+      );
+    `,
+  },
 ];
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {

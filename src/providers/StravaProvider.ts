@@ -47,6 +47,7 @@ export function normalizeStravaActivity(raw: {
 export const stravaProvider: ActivityProvider = {
   key: 'strava',
   displayName: 'Strava',
+  supportsDailyMetrics: false, // Strava has no sleep/HRV data
   isConfigured: () => STRAVA_CLIENT_ID !== null,
   async isAuthorized() {
     return false;

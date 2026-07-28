@@ -164,6 +164,41 @@ export interface PhysiqueEntry {
   notes: string | null;
 }
 
+// ---- Daily physiological metrics (from a device sync, e.g. Garmin) ----
+export type HrvStatus = 'balanced' | 'unbalanced' | 'low' | 'poor';
+
+export interface DailyMetrics {
+  date: string; // ISO date
+  source: string; // 'garmin' | 'manual' | ...
+  sleep_score: number | null; // 0..100
+  hrv_status: HrvStatus | null;
+  hrv_ms: number | null; // overnight HRV in ms
+  recovery_hours: number | null; // recovery time remaining
+  resting_hr: number | null;
+  stress: number | null; // 0..100 average stress
+  body_battery: number | null; // 0..100
+  updated_at: string | null;
+}
+
+// ---- Training Readiness (Garmin-style composite, computed locally) ----
+export type ReadinessLevel = 'poor' | 'low' | 'moderate' | 'high' | 'prime';
+
+export interface ReadinessComponent {
+  key: 'sleep' | 'hrv' | 'recovery' | 'load' | 'stress';
+  label: string;
+  status: string; // human-readable value/status
+  sub: number | null; // 0..100 sub-score, or null when no data
+}
+
+export interface TrainingReadiness {
+  score: number | null; // 0..100, null when there isn't enough data
+  level: ReadinessLevel | null;
+  headline: string;
+  recommendation: string;
+  components: ReadinessComponent[];
+  hasDeviceData: boolean; // true when sleep/HRV came from a device
+}
+
 // ---- Normalized activity from an ActivityProvider (Strava/Garmin) ----
 export interface ProviderActivity {
   externalId: string;
