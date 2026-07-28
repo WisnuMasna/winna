@@ -16,9 +16,9 @@ Most run-training apps optimize purely for race times and treat lifting as an af
 ### The four tabs
 
 **Today** — your daily home.
+- A **Training Readiness** score (0–100, Garmin-style) at the top: how ready you are to train hard today, computed from training load + recovery, plus sleep / HRV / stress when a device is synced. No daily check-in to tap through — and when readiness is low it offers to ease today's hard session.
 - The session(s) scheduled for today, with a one-tap **Mark done & log**.
-- A **1-tap check-in** for sleep, soreness and pain.
-- **Dismissible flags** when something looks risky (see *Adaptive coaching* below).
+- **Dismissible flags** that deep-link to the fix (see *Adaptive coaching* below).
 - Race countdown, and optional short mobility suggestions.
 
 **Plan** — your training calendar.
@@ -109,6 +109,7 @@ The database uses **forward-only migrations from day one** (currently at v3) so 
 ## Not wired yet (deferred by design)
 
 - **Strava / Garmin sync** — adapters implement a shared `ActivityProvider` interface but need API credentials. To enable Strava: register an app, set `STRAVA_CLIENT_ID` in `src/providers/StravaProvider.ts`, and wire OAuth (`expo-auth-session`) + `fetchActivities`. No UI changes required.
+- **Garmin daily metrics → Training Readiness** — the readiness engine and UI are built and work today from local training load; richer inputs (sleep score, HRV status, recovery, stress, Body Battery) flow in once Garmin's Health API is wired. A `normalizeGarminMetrics` mapper + `daily_metrics` table are ready; Garmin's API needs partner approval and a server-side token exchange, so the live pull is stubbed.
 - **Weather-aware notes** and **native calendar export** — stubbed.
 - **LLM plan-adjustment explanations** — a later phase (send readiness + recent sessions to an API for a natural-language weekly adjustment).
 
