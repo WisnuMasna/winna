@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Body, Button, Card, Field, H1, Label, Pill, Row, ScreenScroll, SegmentedControl } from '../../components/ui';
+import { DateField } from '../../components/DateField';
 import { useTheme } from '../../state/ThemeContext';
 import { useSettings } from '../../state/SettingsContext';
 import { useFeedback } from '../../state/FeedbackContext';
@@ -142,7 +143,7 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
         </Card>
       ) : null}
 
-      <Field label="Race date (YYYY-MM-DD)" value={raceDate} onChangeText={setRaceDate} placeholder="2026-10-15" />
+      <DateField label="Race date" value={raceDate} onChange={setRaceDate} minimumDate={todayISO()} />
       <Field label="Goal time (h:mm:ss)" value={goal} onChangeText={setGoal} placeholder="1:45:00" />
       <Field label="Training days / week (3–7)" value={frequency} onChangeText={setFrequency} keyboardType="numeric" />
 
