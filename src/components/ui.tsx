@@ -238,6 +238,7 @@ export function Field({
   label,
   value,
   onChangeText,
+  onBlur,
   placeholder,
   keyboardType,
   multiline,
@@ -245,6 +246,7 @@ export function Field({
   label?: string;
   value: string;
   onChangeText: (v: string) => void;
+  onBlur?: () => void;
   placeholder?: string;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   multiline?: boolean;
@@ -256,6 +258,7 @@ export function Field({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        onBlur={onBlur}
         placeholder={placeholder}
         placeholderTextColor={t.colors.textMuted}
         keyboardType={keyboardType ?? 'default'}

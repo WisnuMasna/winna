@@ -77,7 +77,18 @@ export function ProfileScreen(_props: RootStackScreenProps<'Profile'>) {
 
       <Row gap={3}>
         <View style={{ flex: 1 }}>
-          <Field label="Age" value={age} onChangeText={setAge} keyboardType="numeric" placeholder="e.g. 32" />
+          <Field
+            label="Age"
+            value={age}
+            onChangeText={setAge}
+            onBlur={() => {
+              const n = parseInt(age, 10);
+              if (!isNaN(n)) setAge(String(Math.min(100, Math.max(10, n))));
+              else if (age.trim()) setAge('');
+            }}
+            keyboardType="numeric"
+            placeholder="e.g. 32"
+          />
         </View>
         <View style={{ flex: 1 }}>
           <Field label="Height (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" placeholder="e.g. 178" />

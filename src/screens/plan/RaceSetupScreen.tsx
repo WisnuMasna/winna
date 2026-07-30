@@ -8,7 +8,7 @@ import { useFeedback } from '../../state/FeedbackContext';
 import type { Equipment, PlanTemplate, RaceDistance } from '../../models/types';
 import { getTemplate, listTemplates } from '../../repositories/plan';
 import { createRace, editRace } from '../../services/planService';
-import { formatGoalTime, goalFromRecentResult, parseGoalTime, RACE_DISTANCE_LABEL, RACE_DISTANCE_METERS } from '../../domain/pace';
+import { formatGoalTime, goalFromRecentResult, normalizeTimeInput, parseGoalTime, RACE_DISTANCE_LABEL, RACE_DISTANCE_METERS } from '../../domain/pace';
 import { EQUIPMENT_LABEL } from '../../domain/strength';
 import { displayToMeters, metersToDisplay } from '../../domain/units';
 import { todayISO, addDaysISO, formatShort } from '../../domain/dates';
@@ -169,7 +169,14 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
       ) : null}
 
       <DateField label="Race date" value={raceDate} onChange={setRaceDate} minimumDate={todayISO()} />
-      <Field label="Goal time (h:mm:ss)" value={goal} onChangeText={setGoal} placeholder="1:45:00" />
+      <Field
+        label="Goal time (type 330 → 3:30:00)"
+        value={goal}
+        onChangeText={setGoal}
+        onBlur={() => setGoal(normalizeTimeInput(goal))}
+        keyboardType="numeric"
+        placeholder="1:45:00"
+      />
 
       <Card style={{ backgroundColor: t.colors.surfaceAlt }}>
         <Label>Not sure of your goal?</Label>
@@ -186,11 +193,27 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
             onChange={setRecentDist}
           />
         </View>
-        <Field label="Recent finish time (h:mm:ss)" value={recentTime} onChangeText={setRecentTime} placeholder="e.g. 48:30" />
+        <Field
+          label="Recent finish time (type 4830 → 48:30)"
+          value={recentTime}
+          onChangeText={setRecentTime}
+          onBlur={() => setRecentTime(normalizeTimeInput(recentTime))}
+          keyboardType="numeric"
+          placeholder="e.g. 48:30"
+        />
         <Button title="Estimate my goal" variant="secondary" small onPress={applyRecentResult} />
       </Card>
 
-      <Field label="Training days / week (3–7)" value={frequency} onChangeText={setFrequency} keyboardType="numeric" />
+      <Field
+        label="Training days / week (3–7)"
+        value={frequency}
+        onChangeText={setFrequency}
+        onBlur={() => {
+          const n = parseInt(frequency, 10);
+          if (!isNaN(n)) setFrequency(String(Math.min(7, Math.max(3, n))));
+        }}
+        keyboardType="numeric"
+      />
 
       <Label>Long run day</Label>
       <Row gap={1} style={{ flexWrap: 'wrap', marginBottom: t.spacing(3) }}>

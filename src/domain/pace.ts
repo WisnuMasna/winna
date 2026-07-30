@@ -110,13 +110,57 @@ export function paceForKind(kind: WorkoutKind, paces: TrainingPaces): number | u
   }
 }
 
-/** Parse "mm:ss" or "h:mm:ss" goal time to seconds. */
+/**
+ * Parse a finish/goal time to seconds — forgiving of how it's typed.
+ * With colons: "h:mm:ss", "mm:ss", or "m". Digits only, read the way runners think:
+ *   "45"    → 45:00        (2 digits = minutes)
+ *   "330"   → 3:30:00      (3 digits = h:mm)
+ *   "4830"  → 48:30        (4 digits = mm:ss)
+ *   "13000" → 1:30:00      (5 digits = h:mm:ss)
+ *   "34500" → 3:45:00
+ */
 export function parseGoalTime(text: string): number | null {
-  const parts = text.trim().split(':').map((p) => parseInt(p, 10));
-  if (parts.some((p) => isNaN(p))) return null;
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.includes(':')) {
+    const parts = trimmed.split(':').map((p) => parseInt(p, 10));
+    if (parts.some((p) => isNaN(p))) return null;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 1) return parts[0] * 60;
+    return null;
+  }
+
+  const d = trimmed.replace(/\D/g, '');
+  if (!d) return null;
+  let h = 0;
+  let m = 0;
+  let s = 0;
+  if (d.length <= 2) {
+    m = parseInt(d, 10);
+  } else if (d.length === 3) {
+    h = parseInt(d[0], 10);
+    m = parseInt(d.slice(1), 10);
+  } else if (d.length === 4) {
+    m = parseInt(d.slice(0, 2), 10);
+    s = parseInt(d.slice(2), 10);
+  } else if (d.length === 5) {
+    h = parseInt(d[0], 10);
+    m = parseInt(d.slice(1, 3), 10);
+    s = parseInt(d.slice(3), 10);
+  } else {
+    h = parseInt(d.slice(0, d.length - 4), 10);
+    m = parseInt(d.slice(-4, -2), 10);
+    s = parseInt(d.slice(-2), 10);
+  }
+  return h * 3600 + m * 60 + s;
+}
+
+/** Reformat a loosely-typed time into canonical "h:mm:ss"/"m:ss"; leaves it alone if unparseable. */
+export function normalizeTimeInput(text: string): string {
+  const secs = parseGoalTime(text);
+  return secs == null ? text : formatGoalTime(secs);
 }
 
 export function formatGoalTime(seconds: number | null): string {

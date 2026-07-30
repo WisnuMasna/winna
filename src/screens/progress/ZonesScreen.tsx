@@ -9,6 +9,7 @@ import { getActiveTemplate } from '../../repositories/plan';
 import {
   goalPaceSPerKm,
   parseGoalTime,
+  normalizeTimeInput,
   formatGoalTime,
   riegelPredict,
   RACE_DISTANCE_LABEL,
@@ -137,7 +138,14 @@ export function ZonesScreen(_props: RootStackScreenProps<'Zones'>) {
             onChange={setRecentDist}
           />
         </View>
-        <Field label="Recent finish time (h:mm:ss)" value={recentTime} onChangeText={setRecentTime} placeholder="e.g. 48:30" />
+        <Field
+          label="Recent finish time (type 4830 → 48:30)"
+          value={recentTime}
+          onChangeText={setRecentTime}
+          onBlur={() => setRecentTime(normalizeTimeInput(recentTime))}
+          keyboardType="numeric"
+          placeholder="e.g. 48:30"
+        />
         <Button title="Predict" variant="secondary" small onPress={predict} />
 
         {predictions ? (
