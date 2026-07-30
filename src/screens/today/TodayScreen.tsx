@@ -5,6 +5,7 @@ import { FlagBanner } from '../../components/Banner';
 import { ScheduledSessionCard } from '../../components/SessionCard';
 import { ReadinessCard } from '../../components/ReadinessCard';
 import { useTheme } from '../../state/ThemeContext';
+import { useFeedback } from '../../state/FeedbackContext';
 import { useFocusData } from '../../hooks/useFocusData';
 import { getActiveTemplate, listScheduledBetween, listScheduledForDate, parsePlanned, setScheduledStatus } from '../../repositories/plan';
 import { createSession, listSessions, setStrengthForSession } from '../../repositories/sessions';
@@ -44,6 +45,7 @@ const EMPTY_READINESS: TrainingReadiness = {
 
 export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
   const t = useTheme();
+  const { toast } = useFeedback();
   const iso = todayISO();
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -135,6 +137,7 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
     if (s.type === 'strength' && planned.exercises) await setStrengthForSession(sessionId, planned.exercises);
     await setScheduledStatus(s.id, 'done', sessionId);
     reload();
+    toast('Logged ✓');
   };
 
   const mob = data.today.flatMap((s) => mobilitySuggestions(s.type, data.injuries, parsePlanned(s).split));

@@ -1,6 +1,8 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleProp,
@@ -29,17 +31,20 @@ export function ScreenScroll({
   const t = useTheme();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.colors.bg }}>
-      {refreshing ? (
-        <View style={{ paddingTop: t.spacing(3) }}>
-          <ActivityIndicator color={t.colors.primary} />
-        </View>
-      ) : null}
-      <ScrollView
-        contentContainerStyle={[{ padding: t.spacing(4), paddingBottom: t.spacing(16) }, contentStyle]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {children}
-      </ScrollView>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {refreshing ? (
+          <View style={{ paddingTop: t.spacing(3) }}>
+            <ActivityIndicator color={t.colors.primary} />
+          </View>
+        ) : null}
+        <ScrollView
+          contentContainerStyle={[{ padding: t.spacing(4), paddingBottom: t.spacing(16) }, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

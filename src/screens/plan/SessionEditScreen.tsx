@@ -45,18 +45,43 @@ import { listActiveInjuries } from '../../repositories/injuries';
 import { listShoes } from '../../repositories/shoes';
 import { dropSession, foldSession, pushSession } from '../../services/weekActions';
 import { mobilitySuggestions } from '../../domain/mobility';
-import { displayToMeters, formatPace, metersToDisplay, parseDurationInput } from '../../domain/units';
+import { displayToMeters, formatPace, metersToDisplay } from '../../domain/units';
+import { normalizeTimeInput, parseGoalTime } from '../../domain/pace';
 import type { InjuryLog, Shoe } from '../../models/types';
 import type { RootStackScreenProps } from '../../navigation/types';
 
 const TYPES: SessionType[] = ['run', 'strength', 'mobility', 'cross', 'rest'];
 const KM_PER_MI = 1.609344;
 
+// Accepts "4:45" or plain digits ("445" → 4:45, "5" → 5:00) → seconds per km.
 function parsePaceInput(text: string, unit: 'km' | 'mi'): number | null {
-  const parts = text.trim().split(':').map((p) => parseInt(p, 10));
-  if (parts.length !== 2 || parts.some((p) => isNaN(p))) return null;
-  const perDisplay = parts[0] * 60 + parts[1];
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  let m: number;
+  let s: number;
+  if (trimmed.includes(':')) {
+    const parts = trimmed.split(':').map((p) => parseInt(p, 10));
+    if (parts.length !== 2 || parts.some((p) => isNaN(p))) return null;
+    [m, s] = parts;
+  } else {
+    const d = trimmed.replace(/\D/g, '');
+    if (!d) return null;
+    if (d.length <= 2) {
+      m = parseInt(d, 10);
+      s = 0;
+    } else {
+      m = parseInt(d.slice(0, d.length - 2), 10);
+      s = parseInt(d.slice(-2), 10);
+    }
+  }
+  const perDisplay = m * 60 + s;
   return unit === 'mi' ? perDisplay / KM_PER_MI : perDisplay;
+}
+
+// Clamp a typed RPE to 1–10 (empty stays empty).
+function clampRpe(v: string): string {
+  const n = parseInt(v, 10);
+  return isNaN(n) ? '' : String(Math.min(10, Math.max(1, n)));
 }
 
 interface LoadResult {
@@ -268,7 +293,16 @@ function ScheduledEditor({
           <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} keyboardType="decimal-pad" />
         </View>
         <View style={{ flex: 1 }}>
-          <Field label={`Target pace (mm:ss/${units.distance})`} value={pace} onChangeText={setPace} />
+          <Field
+            label={`Target pace (mm:ss/${units.distance})`}
+            value={pace}
+            onChangeText={setPace}
+            onBlur={() => {
+              const secKm = parsePaceInput(pace, units.distance);
+              if (secKm != null) setPace(formatPace(secKm, units.distance).split('/')[0]);
+            }}
+            keyboardType="numeric"
+          />
         </View>
       </Row>
 
@@ -370,7 +404,7 @@ function LoggedEditor({
 
   const save = async () => {
     const distM = distance.trim() ? displayToMeters(parseFloat(distance), units.distance) : null;
-    const durS = duration.trim() ? parseDurationInput(duration) : null;
+    const durS = duration.trim() ? parseGoalTime(duration) : null;
     const pace = distM && durS ? durS / (distM / 1000) : session.avg_pace_s_per_km;
     await updateSession(session.id, {
       distance_m: distM,
@@ -414,7 +448,13 @@ function LoggedEditor({
               <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} keyboardType="decimal-pad" />
             </View>
             <View style={{ flex: 1 }}>
-              <Field label="Duration (min or h:mm:ss)" value={duration} onChangeText={setDuration} />
+              <Field
+                label="Duration (type 4530 → 45:30)"
+                value={duration}
+                onChangeText={setDuration}
+                onBlur={() => setDuration(normalizeTimeInput(duration))}
+                keyboardType="numeric"
+              />
             </View>
           </Row>
           <Row gap={3}>
@@ -422,12 +462,12 @@ function LoggedEditor({
               <Field label="Avg HR" value={hr} onChangeText={setHr} keyboardType="numeric" />
             </View>
             <View style={{ flex: 1 }}>
-              <Field label="RPE (1–10)" value={rpe} onChangeText={setRpe} keyboardType="numeric" />
+              <Field label="RPE (1–10)" value={rpe} onChangeText={setRpe} onBlur={() => setRpe(clampRpe(rpe))} keyboardType="numeric" />
             </View>
           </Row>
         </>
       ) : (
-        <Field label="RPE (1–10)" value={rpe} onChangeText={setRpe} keyboardType="numeric" />
+        <Field label="RPE (1–10)" value={rpe} onChangeText={setRpe} onBlur={() => setRpe(clampRpe(rpe))} keyboardType="numeric" />
       )}
 
       {session.type === 'strength' ? (
