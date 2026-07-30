@@ -64,7 +64,7 @@ export function runWorkout(kind: WorkoutKind, ctx: RunContext): PlannedDetails {
 
   switch (kind) {
     case 'easy':
-      return { ...base, label: 'Easy run', intervals: `Relaxed @ ${formatPace(paces.easy, distanceUnit)}` };
+      return { ...base, label: 'Easy run', intervals: `Easy @ ${formatPace(paces.easy, distanceUnit)}` };
     case 'recovery':
       return { ...base, label: 'Recovery jog', intervals: `Very easy @ ${formatPace(paces.recovery, distanceUnit)}` };
     case 'long':

@@ -245,6 +245,7 @@ export function generatePlan(cfg: PlanConfig): NewScheduled[] {
       planned = {
         label: 'Cross-training',
         duration_s: 40 * 60,
+        intervals: '40 min easy — bike, swim, row or elliptical (conversational effort)',
         rationale: 'Low-impact aerobic work adds volume without the pounding of extra running.',
       };
     }

@@ -468,8 +468,8 @@ function SkipAction({
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing(3), marginBottom: t.spacing(2) }}>
-      <View style={{ width: 92 }}>
-        <Button title={title} variant="secondary" small onPress={onPress} />
+      <View style={{ width: 104 }}>
+        <Button title={title} variant="secondary" small onPress={onPress} style={{ width: '100%' }} />
       </View>
       <Text style={{ color: t.colors.textMuted, fontSize: 13, flex: 1 }}>{description}</Text>
     </View>

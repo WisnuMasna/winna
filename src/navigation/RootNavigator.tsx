@@ -4,6 +4,7 @@ import { DarkTheme, DefaultTheme, NavigationContainer, Theme as NavTheme } from 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../state/ThemeContext';
+import { HeaderBack } from '../components/HeaderBack';
 import type { AppStackParamList, TabName, TabParamList } from './types';
 
 import { TodayScreen } from '../screens/today/TodayScreen';
@@ -64,6 +65,7 @@ function useHeaderOptions() {
     headerTintColor: t.colors.text,
     headerTitleStyle: { color: t.colors.text },
     headerBackTitle: 'Back',
+    headerLeft: () => <HeaderBack />,
     contentStyle: { backgroundColor: t.colors.bg },
   } as const;
 }
