@@ -26,10 +26,13 @@ export interface PlanConfig {
   templateId: number | null;
   distanceUnit: 'km' | 'mi';
   maxHr: number | null; // estimated HRmax from the profile, if available
+  longRunDay: number; // weekday the long run lands on (0=Sun..6=Sat)
 }
 
-// Weekly layouts indexed by weekday (0=Sun..6=Sat). Lift days are kept away from the
-// long run and quality days to avoid running heavy legs into hard aerobic work.
+// Weekly layouts as an ordered sequence of roles RELATIVE to the long-run day: index 0 is the
+// long run, index 1 the day after, … index 6 the day before. The generator rotates this onto
+// real weekdays around whichever day the user picks. Lift days are kept away from the long run
+// and quality days so heavy legs don't run into hard aerobic work.
 const LAYOUTS: Record<number, Role[]> = {
   3: ['long', 'rest', 'rest', 'lower', 'rest', 'quality', 'rest'],
   4: ['long', 'rest', 'lower', 'quality', 'rest', 'upper', 'rest'],
@@ -121,20 +124,20 @@ function weeklyVolumes(
   return out;
 }
 
-/** Build the default weekday->type structure for the template from the layout. */
-export function defaultStructure(frequency: number): PlanStructure {
+function roleToType(role: Role): SessionType {
+  if (role === 'lower' || role === 'upper') return 'strength';
+  if (role === 'cross') return 'cross';
+  if (role === 'rest') return 'rest';
+  return 'run';
+}
+
+/** Build the default weekday->type structure, rotated so the long run lands on longRunDay. */
+export function defaultStructure(frequency: number, longRunDay: number): PlanStructure {
   const layout = layoutFor(frequency);
   const structure: PlanStructure = {};
-  layout.forEach((role, weekday) => {
-    const type: SessionType =
-      role === 'lower' || role === 'upper'
-        ? 'strength'
-        : role === 'cross'
-          ? 'cross'
-          : role === 'rest'
-            ? 'rest'
-            : 'run';
-    structure[weekday] = type;
+  layout.forEach((role, offset) => {
+    const weekday = (longRunDay + offset) % 7;
+    structure[weekday] = roleToType(role);
   });
   return structure;
 }
@@ -193,7 +196,8 @@ export function generatePlan(cfg: PlanConfig): NewScheduled[] {
       continue;
     }
 
-    const role = layout[weekdayIndex(date)];
+    const offset = (weekdayIndex(date) - cfg.longRunDay + 7) % 7;
+    const role = layout[offset];
     if (role === 'rest') continue; // empty day = rest; keeps the calendar & reshuffle simple
 
     const longKm = Math.min(vol * LONG_FRACTION[cfg.raceDistance], LONG_CAP_KM[cfg.raceDistance]);

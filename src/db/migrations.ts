@@ -150,6 +150,11 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    // Let the user choose which weekday their long run lands on (0=Sun..6=Sat).
+    version: 5,
+    up: `ALTER TABLE plan_templates ADD COLUMN long_run_day INTEGER;`,
+  },
 ];
 
 export async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {

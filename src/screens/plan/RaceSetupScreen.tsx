@@ -16,6 +16,15 @@ import type { RootStackScreenProps } from '../../navigation/types';
 
 const DISTANCES: RaceDistance[] = ['5k', '10k', 'half', 'full', 'ultra'];
 const EQUIPMENT: Equipment[] = ['full_gym', 'dumbbell', 'bodyweight'];
+const DAYS = [
+  { label: 'Mon', value: 1 },
+  { label: 'Tue', value: 2 },
+  { label: 'Wed', value: 3 },
+  { label: 'Thu', value: 4 },
+  { label: 'Fri', value: 5 },
+  { label: 'Sat', value: 6 },
+  { label: 'Sun', value: 0 },
+];
 
 export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'RaceSetup'>) {
   const t = useTheme();
@@ -33,6 +42,7 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
   const [frequency, setFrequency] = useState('5');
   const [baseline, setBaseline] = useState('');
   const [equipment, setEquipment] = useState<Equipment>('full_gym');
+  const [longRunDay, setLongRunDay] = useState<number>(6);
   const [chainAfterId, setChainAfterId] = useState<number | null>(route.params?.chainAfterId ?? null);
   const [otherRaces, setOtherRaces] = useState<PlanTemplate[]>([]);
   const [recentDist, setRecentDist] = useState<RaceDistance>('10k');
@@ -51,6 +61,7 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
         setGoal(formatGoalTime(tpl.goal_seconds));
         setFrequency(String(tpl.weekly_frequency));
         setEquipment(tpl.equipment);
+        setLongRunDay(tpl.long_run_day ?? 6);
         setChainAfterId(tpl.chained_from_id);
         if (tpl.baseline_weekly_km != null) {
           setBaseline(metersToDisplay(tpl.baseline_weekly_km * 1000, distanceUnit).toFixed(0));
@@ -96,6 +107,7 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
       weeklyFrequency: freq,
       baselineWeeklyKm: baselineKm,
       equipment,
+      longRunDay,
       distanceUnit,
       chainAfterId,
     };
@@ -179,6 +191,19 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
       </Card>
 
       <Field label="Training days / week (3–7)" value={frequency} onChangeText={setFrequency} keyboardType="numeric" />
+
+      <Label>Long run day</Label>
+      <Row gap={1} style={{ flexWrap: 'wrap', marginBottom: t.spacing(3) }}>
+        {DAYS.map((d) => (
+          <Button
+            key={d.value}
+            title={d.label}
+            small
+            variant={longRunDay === d.value ? 'primary' : 'secondary'}
+            onPress={() => setLongRunDay(d.value)}
+          />
+        ))}
+      </Row>
 
       <Label>Strength equipment</Label>
       <View style={{ marginBottom: t.spacing(3) }}>

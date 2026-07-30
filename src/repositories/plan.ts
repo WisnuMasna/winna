@@ -34,8 +34,8 @@ export async function getActiveTemplate(asOfISO?: string): Promise<PlanTemplate 
 export async function createTemplate(t: NewPlanTemplate): Promise<number> {
   const res = await getDb().runAsync(
     `INSERT INTO plan_templates
-       (name, race_distance, race_date, goal_seconds, weekly_frequency, start_date, structure_json, strength_split_json, equipment, chained_from_id, baseline_weekly_km, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (name, race_distance, race_date, goal_seconds, weekly_frequency, start_date, structure_json, strength_split_json, equipment, chained_from_id, baseline_weekly_km, long_run_day, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       t.name,
       t.race_distance,
@@ -48,6 +48,7 @@ export async function createTemplate(t: NewPlanTemplate): Promise<number> {
       t.equipment,
       t.chained_from_id,
       t.baseline_weekly_km,
+      t.long_run_day,
       new Date().toISOString(),
     ],
   );

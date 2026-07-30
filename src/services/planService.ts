@@ -21,6 +21,8 @@ export interface RaceInput {
   baselineWeeklyKm: number | null;
   equipment: Equipment;
   distanceUnit: 'km' | 'mi';
+  /** Weekday the long run lands on (0=Sun..6=Sat). Defaults to Saturday. */
+  longRunDay?: number;
   /** Build this race on top of a previous one: start after it and carry fitness forward. */
   chainAfterId?: number | null;
   /** Only used for a standalone race; ignored when chaining. Defaults to today. */
@@ -31,6 +33,7 @@ export interface RaceInput {
 
 const PEAK_MULTIPLIER = 1.35; // how much a plan ramps above its starting volume
 const CHAIN_GAP_DAYS = 3; // recovery gap between a race and the next block
+const DEFAULT_LONG_RUN_DAY = 6; // Saturday
 
 async function maxHrFromProfile(): Promise<number | null> {
   const settings = await getSettings();
@@ -69,6 +72,7 @@ async function generateInto(templateId: number, input: RaceInput, startDate: str
     templateId,
     distanceUnit: input.distanceUnit,
     maxHr: await maxHrFromProfile(),
+    longRunDay: input.longRunDay ?? DEFAULT_LONG_RUN_DAY,
   });
   await clearScheduledForTemplate(templateId);
   await bulkInsertScheduled(rows);
@@ -79,8 +83,9 @@ async function generateInto(templateId: number, input: RaceInput, startDate: str
 export async function createRace(input: RaceInput): Promise<number> {
   const { startDate, baseline } = await resolveStartAndBaseline(input);
   const settings = await getSettings();
+  const longRunDay = input.longRunDay ?? DEFAULT_LONG_RUN_DAY;
   const split = input.split ?? defaultStrengthSplit(settings.bodyweight_kg, input.equipment);
-  const structure = defaultStructure(input.weeklyFrequency);
+  const structure = defaultStructure(input.weeklyFrequency, longRunDay);
 
   const templateId = await createTemplate({
     name: input.name,
@@ -94,6 +99,7 @@ export async function createRace(input: RaceInput): Promise<number> {
     equipment: input.equipment,
     chained_from_id: input.chainAfterId ?? null,
     baseline_weekly_km: baseline,
+    long_run_day: longRunDay,
   });
 
   await generateInto(templateId, input, startDate, baseline);
@@ -111,10 +117,11 @@ export async function editRace(templateId: number, input: RaceInput): Promise<vo
     goal_seconds: input.goalSeconds,
     weekly_frequency: input.weeklyFrequency,
     start_date: startDate,
-    structure_json: JSON.stringify(defaultStructure(input.weeklyFrequency)),
+    structure_json: JSON.stringify(defaultStructure(input.weeklyFrequency, input.longRunDay ?? DEFAULT_LONG_RUN_DAY)),
     strength_split_json: JSON.stringify(split),
     equipment: input.equipment,
     chained_from_id: input.chainAfterId ?? null,
     baseline_weekly_km: baseline,
+    long_run_day: input.longRunDay ?? DEFAULT_LONG_RUN_DAY,
   });
 }

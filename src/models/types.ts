@@ -73,6 +73,7 @@ export interface PlanTemplate {
   equipment: Equipment;
   chained_from_id: number | null; // race this one builds on top of, if any
   baseline_weekly_km: number | null; // starting weekly volume the plan ramped from
+  long_run_day: number | null; // weekday for the long run (0=Sun..6=Sat)
   created_at: string;
 }
 
