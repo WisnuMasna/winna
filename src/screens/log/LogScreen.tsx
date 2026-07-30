@@ -15,10 +15,10 @@ export function LogScreen({ navigation }: TabScreenProps<'Log'>) {
   const units = useUnits();
 
   const loader = useCallback(() => listSessions(200), []);
-  const { data: sessions } = useFocusData<Session[]>(loader, []);
+  const { data: sessions, refresh } = useFocusData<Session[]>(loader, []);
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={refresh}>
       <H1>Log</H1>
 
       <Row gap={2} style={{ marginBottom: t.spacing(3) }}>

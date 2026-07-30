@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleProp,
   Text,
@@ -21,26 +21,39 @@ import type { Theme } from '../state/theme';
 
 export function ScreenScroll({
   children,
-  refreshing,
+  onRefresh,
   contentStyle,
 }: {
   children: React.ReactNode;
-  refreshing?: boolean;
+  onRefresh?: () => Promise<void>;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const t = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = onRefresh
+    ? async () => {
+        setRefreshing(true);
+        try {
+          await onRefresh();
+        } finally {
+          setRefreshing(false);
+        }
+      }
+    : undefined;
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: t.colors.bg }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {refreshing ? (
-          <View style={{ paddingTop: t.spacing(3) }}>
-            <ActivityIndicator color={t.colors.primary} />
-          </View>
-        ) : null}
         <ScrollView
           contentContainerStyle={[{ padding: t.spacing(4), paddingBottom: t.spacing(16) }, contentStyle]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          refreshControl={
+            handleRefresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={t.colors.primary} colors={[t.colors.primary]} />
+            ) : undefined
+          }
         >
           {children}
         </ScrollView>

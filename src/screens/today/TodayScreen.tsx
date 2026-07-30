@@ -96,7 +96,7 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
     return { template, today, injuries, flags, readiness, showConnectGarmin, adjustSessionId };
   }, [iso]);
 
-  const { data, reload } = useFocusData<TodayData>(loader, {
+  const { data, reload, refresh } = useFocusData<TodayData>(loader, {
     template: null,
     today: [],
     injuries: [],
@@ -143,7 +143,7 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
   const mob = data.today.flatMap((s) => mobilitySuggestions(s.type, data.injuries, parsePlanned(s).split));
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={refresh}>
       <H1>Today</H1>
       <Body muted>{formatLong(iso)}</Body>
 

@@ -29,7 +29,7 @@ export function PlanScreen({ navigation }: TabScreenProps<'Plan'>) {
     return { template, sessions };
   }, [dates[0], dates[6]]);
 
-  const { data, reload } = useFocusData<PlanData>(loader, { template: null, sessions: [] });
+  const { data, reload, refresh } = useFocusData<PlanData>(loader, { template: null, sessions: [] });
   const { template, sessions } = data;
 
   const phaseThisWeek = sessions[0]?.phase;
@@ -43,7 +43,7 @@ export function PlanScreen({ navigation }: TabScreenProps<'Plan'>) {
 
   if (!template) {
     return (
-      <ScreenScroll>
+      <ScreenScroll onRefresh={refresh}>
         <H1>Plan</H1>
         <EmptyState
           title="No plan yet"
@@ -55,7 +55,7 @@ export function PlanScreen({ navigation }: TabScreenProps<'Plan'>) {
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={refresh}>
       <Row style={{ justifyContent: 'space-between', marginBottom: t.spacing(2) }}>
         <H1 style={{ marginBottom: 0 }}>Plan</H1>
         <Button title="Races" variant="ghost" small onPress={() => navigation.navigate('Races')} />

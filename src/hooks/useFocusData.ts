@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 export function useFocusData<T>(
   loader: () => Promise<T>,
   initial: T,
-): { data: T; loading: boolean; reload: () => void } {
+): { data: T; loading: boolean; reload: () => void; refresh: () => Promise<void> } {
   const [data, setData] = useState<T>(initial);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +27,12 @@ export function useFocusData<T>(
     };
   }, [loader]);
 
+  // Awaitable variant for pull-to-refresh, so the spinner can track the actual load.
+  const refresh = useCallback(async () => {
+    const d = await loader();
+    setData(d);
+  }, [loader]);
+
   useFocusEffect(
     useCallback(() => {
       const cleanup = load();
@@ -34,5 +40,5 @@ export function useFocusData<T>(
     }, [load]),
   );
 
-  return { data, loading, reload: load };
+  return { data, loading, reload: load, refresh };
 }

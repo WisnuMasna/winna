@@ -80,7 +80,7 @@ export function ProgressScreen({ navigation }: TabScreenProps<'Progress'>) {
     };
   }, []);
 
-  const { data } = useFocusData<ProgressData>(loader, {
+  const { data, refresh } = useFocusData<ProgressData>(loader, {
     weekActual: 0,
     weekPlanned: 0,
     strengthCount: 0,
@@ -98,7 +98,7 @@ export function ProgressScreen({ navigation }: TabScreenProps<'Progress'>) {
   const acwrColor = data.acwr == null ? t.colors.textMuted : data.acwr > 1.5 ? t.colors.danger : data.acwr < 0.8 ? t.colors.warn : t.colors.success;
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={refresh}>
       <H1>Progress</H1>
 
       <Card>
