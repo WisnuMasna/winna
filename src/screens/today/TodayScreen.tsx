@@ -199,7 +199,12 @@ export function TodayScreen({ navigation }: TabScreenProps<'Today'>) {
 
       <Label>Today's sessions</Label>
       {data.today.length === 0 ? (
-        <EmptyState title="Rest day" subtitle="Nothing scheduled. Enjoy it — or add something from the Plan tab." />
+        <EmptyState
+          title="Rest day"
+          subtitle="Nothing scheduled. Enjoy it — or add a session if you're feeling good."
+          actionLabel="+ Add a session"
+          onAction={() => navigation.navigate('SessionEdit', { date: iso })}
+        />
       ) : (
         data.today.map((s) => (
           <ScheduledSessionCard

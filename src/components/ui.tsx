@@ -314,12 +314,27 @@ export function Divider() {
   return <View style={{ height: 1, backgroundColor: t.colors.border, marginVertical: t.spacing(2) }} />;
 }
 
-export function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
+export function EmptyState({
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  subtitle?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   const t = useTheme();
   return (
     <View style={{ alignItems: 'center', paddingVertical: t.spacing(8) }}>
       <Text style={{ color: t.colors.text, fontSize: 16, fontWeight: '700', marginBottom: t.spacing(1) }}>{title}</Text>
       {subtitle ? <Body muted style={{ textAlign: 'center' }}>{subtitle}</Body> : null}
+      {actionLabel && onAction ? (
+        <View style={{ marginTop: t.spacing(3) }}>
+          <Button title={actionLabel} variant="secondary" small onPress={onAction} />
+        </View>
+      ) : null}
     </View>
   );
 }
