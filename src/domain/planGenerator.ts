@@ -9,11 +9,11 @@ import type {
 } from '../models/types';
 import { addDaysISO, daysBetween, weekdayIndex, weeksBetween } from './dates';
 import { RACE_DISTANCE_METERS, trainingPaces, TrainingPaces } from './pace';
-import { qualityKindForPhase, runWorkout } from './suggestions';
+import { qualityKindForPhase, runWorkout, secondQualityKindForPhase } from './suggestions';
 import { formatHrRange, hrRangeForKind } from './hr';
 
 type NewScheduled = Omit<ScheduledSession, 'id'>;
-type Role = 'long' | 'quality' | 'easy' | 'lower' | 'upper' | 'cross' | 'rest';
+type Role = 'long' | 'quality' | 'quality2' | 'easy' | 'lower' | 'upper' | 'cross' | 'rest';
 
 export interface PlanConfig {
   raceDistance: RaceDistance;
@@ -37,8 +37,10 @@ const LAYOUTS: Record<number, Role[]> = {
   3: ['long', 'rest', 'rest', 'lower', 'rest', 'quality', 'rest'],
   4: ['long', 'rest', 'lower', 'quality', 'rest', 'upper', 'rest'],
   5: ['long', 'rest', 'quality', 'upper', 'lower', 'rest', 'easy'],
-  6: ['long', 'upper', 'quality', 'lower', 'easy', 'rest', 'easy'],
-  7: ['long', 'upper', 'quality', 'easy', 'lower', 'easy', 'cross'],
+  // 6–7 days get a second quality slot (quality2) → a balanced week of long + two
+  // quality sessions, with an easy day between them and lifts kept off the hard days.
+  6: ['long', 'upper', 'quality', 'easy', 'quality2', 'lower', 'rest'],
+  7: ['long', 'upper', 'quality', 'easy', 'quality2', 'lower', 'cross'],
 };
 
 function layoutFor(frequency: number): Role[] {
@@ -218,8 +220,8 @@ export function generatePlan(cfg: PlanConfig): NewScheduled[] {
         maxHr: cfg.maxHr,
         distanceM: longKm * 1000,
       });
-    } else if (role === 'quality') {
-      const kind = qualityKindForPhase(phase, cfg.raceDistance);
+    } else if (role === 'quality' || role === 'quality2') {
+      const kind = role === 'quality' ? qualityKindForPhase(phase, cfg.raceDistance) : secondQualityKindForPhase(phase);
       planned = runWorkout(kind, {
         distance: cfg.raceDistance,
         phase,

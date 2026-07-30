@@ -41,6 +41,23 @@ export function qualityKindForPhase(phase: Phase, distance: RaceDistance): Worko
   }
 }
 
+/**
+ * The second quality slot in a 6–7 day week — a complementary stimulus to the primary
+ * quality session. Adds VO2max work through build and peak for top-end speed and a balanced
+ * week; stays light (strides) in base and taper.
+ */
+export function secondQualityKindForPhase(phase: Phase): WorkoutKind {
+  switch (phase) {
+    case 'base':
+      return 'strides';
+    case 'build':
+    case 'peak':
+      return 'vo2max';
+    case 'taper':
+      return 'strides';
+  }
+}
+
 interface RunContext {
   distance: RaceDistance;
   phase: Phase;
