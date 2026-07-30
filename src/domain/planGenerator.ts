@@ -205,7 +205,10 @@ export function generatePlan(cfg: PlanConfig): NewScheduled[] {
     const longKm = Math.min(vol * LONG_FRACTION[cfg.raceDistance], LONG_CAP_KM[cfg.raceDistance]);
     const qualKm = Math.max(4, vol * 0.2);
     const easyTotal = Math.max(0, vol - longKm - qualKm);
-    const easyKm = easyCount > 0 ? easyTotal / easyCount : Math.max(4, easyTotal);
+    // Cap each easy run so it never ends up longer than the long run (matters when a low-
+    // frequency week has only one easy slot to absorb the remaining volume).
+    const easyPer = easyCount > 0 ? easyTotal / easyCount : easyTotal;
+    const easyKm = Math.max(4, Math.min(easyPer, longKm * 0.85));
 
     let type: SessionType = 'run';
     let planned: object;
