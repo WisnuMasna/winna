@@ -6,7 +6,7 @@ import { useUnits } from '../../state/SettingsContext';
 import { useFeedback } from '../../state/FeedbackContext';
 import { useFocusData } from '../../hooks/useFocusData';
 import { createShoe, deleteShoe, listShoesWithMileage, ShoeWithMileage, updateShoe } from '../../repositories/shoes';
-import { displayToMeters, formatDistance } from '../../domain/units';
+import { displayToMeters, formatDistance, sanitizeDecimalInput } from '../../domain/units';
 import { todayISO } from '../../domain/dates';
 
 export function ShoesScreen() {
@@ -54,7 +54,7 @@ export function ShoesScreen() {
       <Card style={{ marginTop: t.spacing(3) }}>
         <Label>Add a pair</Label>
         <Field value={name} onChangeText={setName} placeholder="Shoe name" />
-        <Field value={threshold} onChangeText={setThreshold} placeholder={`Wear threshold (${units.distance}, default 700km)`} keyboardType="decimal-pad" />
+        <Field value={threshold} onChangeText={setThreshold} onBlur={() => setThreshold(sanitizeDecimalInput(threshold))} placeholder={`Wear threshold (${units.distance}, default 700km)`} keyboardType="decimal-pad" />
         <Button title="Add shoe" onPress={add} />
       </Card>
 

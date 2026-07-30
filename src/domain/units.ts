@@ -61,6 +61,15 @@ export function formatDuration(seconds: number | null): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/** Clean a decimal input to a non-negative numeric string; '' when empty/invalid. */
+export function sanitizeDecimalInput(text: string): string {
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  if (!cleaned) return '';
+  const n = parseFloat(cleaned);
+  if (isNaN(n) || n < 0) return '';
+  return String(n);
+}
+
 /** Parse "h:mm:ss" or "mm:ss" or a plain number of minutes into seconds. */
 export function parseDurationInput(text: string): number | null {
   const trimmed = text.trim();

@@ -6,7 +6,7 @@ import { useSettings, useUnits } from '../../state/SettingsContext';
 import { useFeedback } from '../../state/FeedbackContext';
 import { createPhysique, listPhysique } from '../../repositories/physique';
 import { ageFromBirthYear, birthYearFromAge, estimatedMaxHr, formatHrRange, trainingZones } from '../../domain/hr';
-import { displayToKg, kgToDisplay } from '../../domain/units';
+import { displayToKg, kgToDisplay, sanitizeDecimalInput } from '../../domain/units';
 import { todayISO } from '../../domain/dates';
 import type { Sex } from '../../models/types';
 import type { RootStackScreenProps } from '../../navigation/types';
@@ -91,7 +91,7 @@ export function ProfileScreen(_props: RootStackScreenProps<'Profile'>) {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Field label="Height (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" placeholder="e.g. 178" />
+          <Field label="Height (cm)" value={height} onChangeText={setHeight} onBlur={() => setHeight(sanitizeDecimalInput(height))} keyboardType="decimal-pad" placeholder="e.g. 178" />
         </View>
       </Row>
 
@@ -99,6 +99,7 @@ export function ProfileScreen(_props: RootStackScreenProps<'Profile'>) {
         label={`Bodyweight (${units.weight})`}
         value={weight}
         onChangeText={setWeight}
+        onBlur={() => setWeight(sanitizeDecimalInput(weight))}
         keyboardType="decimal-pad"
         placeholder="e.g. 74"
       />

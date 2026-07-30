@@ -45,7 +45,7 @@ import { listActiveInjuries } from '../../repositories/injuries';
 import { listShoes } from '../../repositories/shoes';
 import { dropSession, foldSession, pushSession } from '../../services/weekActions';
 import { mobilitySuggestions } from '../../domain/mobility';
-import { displayToMeters, formatPace, metersToDisplay } from '../../domain/units';
+import { displayToMeters, formatPace, metersToDisplay, sanitizeDecimalInput } from '../../domain/units';
 import { normalizeTimeInput, parseGoalTime } from '../../domain/pace';
 import type { InjuryLog, Shoe } from '../../models/types';
 import type { RootStackScreenProps } from '../../navigation/types';
@@ -290,7 +290,7 @@ function ScheduledEditor({
       <Field label="Workout / structure" value={intervals} onChangeText={setIntervals} multiline />
       <Row gap={3}>
         <View style={{ flex: 1 }}>
-          <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} keyboardType="decimal-pad" />
+          <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} onBlur={() => setDistance(sanitizeDecimalInput(distance))} keyboardType="decimal-pad" />
         </View>
         <View style={{ flex: 1 }}>
           <Field
@@ -445,7 +445,7 @@ function LoggedEditor({
         <>
           <Row gap={3}>
             <View style={{ flex: 1 }}>
-              <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} keyboardType="decimal-pad" />
+              <Field label={`Distance (${units.distance})`} value={distance} onChangeText={setDistance} onBlur={() => setDistance(sanitizeDecimalInput(distance))} keyboardType="decimal-pad" />
             </View>
             <View style={{ flex: 1 }}>
               <Field

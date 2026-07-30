@@ -10,7 +10,7 @@ import { getTemplate, listTemplates } from '../../repositories/plan';
 import { createRace, editRace } from '../../services/planService';
 import { formatGoalTime, goalFromRecentResult, normalizeTimeInput, parseGoalTime, RACE_DISTANCE_LABEL, RACE_DISTANCE_METERS } from '../../domain/pace';
 import { EQUIPMENT_LABEL } from '../../domain/strength';
-import { displayToMeters, metersToDisplay } from '../../domain/units';
+import { displayToMeters, metersToDisplay, sanitizeDecimalInput } from '../../domain/units';
 import { todayISO, addDaysISO, formatShort } from '../../domain/dates';
 import type { RootStackScreenProps } from '../../navigation/types';
 
@@ -242,6 +242,7 @@ export function RaceSetupScreen({ route, navigation }: RootStackScreenProps<'Rac
           label={`Current weekly volume (${distanceUnit}) — optional`}
           value={baseline}
           onChangeText={setBaseline}
+          onBlur={() => setBaseline(sanitizeDecimalInput(baseline))}
           keyboardType="decimal-pad"
           placeholder="leave blank for a sensible default"
         />
